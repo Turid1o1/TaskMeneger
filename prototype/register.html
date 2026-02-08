@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Регистрация</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="login-page">
+  <section class="login-shell">
+    <div class="login-visual">
+      <img src="assets/login-hero.png" alt="Иллюстрация страницы регистрации">
+    </div>
+
+    <div class="login-panel">
+      <form class="auth-card" id="register-form">
+        <h1>РЕГИСТРАЦИЯ<br>СОТРУДНИКА</h1>
+        <div class="auth-sub">После регистрации пользователь появится в разделе "Пользователи" и в выпадающих списках.</div>
+
+        <input class="auth-input" id="reg-login" type="text" placeholder="Логин" required>
+        <input class="auth-input" id="reg-password" type="password" placeholder="Пароль" required>
+        <input class="auth-input" id="reg-password-repeat" type="password" placeholder="Повторите пароль" required>
+        <input class="auth-input" id="reg-fullname" type="text" placeholder="ФИО" required>
+        <input class="auth-input" id="reg-position" type="text" placeholder="Должность" required>
+
+        <div class="auth-actions">
+          <button class="auth-btn" type="submit">Создать</button>
+          <a class="auth-btn secondary" href="login.html">Назад</a>
+        </div>
+
+        <div class="auth-footer" id="register-message">ФГУП «ПВС» МВД России</div>
+      </form>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+  <script>
+    TaskFlowAuth.initRegisterPage();
+  </script>
+</body>
+</html>

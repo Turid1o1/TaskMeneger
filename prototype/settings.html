@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Настройки</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">TaskFlow</div>
+      <a class="nav-link" href="dashboard.html">Главная</a>
+      <a class="nav-link active" href="settings.html">Настройки</a>
+      <a class="nav-link" href="users-roles.html">Пользователи и роли</a>
+      <a class="nav-link" href="tasks.html">Задачи</a>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1>Настройки Workspace</h1>
+          <div class="muted">Часовой пояс, язык, политики безопасности и уведомлений.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="form-grid">
+          <div><label>Часовой пояс</label><select><option>Europe/Moscow</option><option>UTC</option></select></div>
+          <div><label>Язык интерфейса</label><select><option>Русский</option><option>English</option></select></div>
+          <div><label>Тема</label><select><option>Светлая</option><option>Темная</option></select></div>
+          <div><label>Политика паролей</label><select><option>Строгая</option><option>Стандартная</option></select></div>
+        </div>
+        <div style="margin-top:12px;">
+          <a class="btn primary" href="dashboard.html">Сохранить </a>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

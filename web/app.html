@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Приложение</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app" id="app-root">
+    <aside class="sidebar">
+      <div class="logo">TaskFlow</div>
+      <a class="nav-link active" href="#" data-view="dashboard">Главная</a>
+      <a class="nav-link" href="#" data-view="projects">Проекты</a>
+      <a class="nav-link" href="#" data-view="project-details">Задачи проекта</a>
+      <a class="nav-link" href="#" data-view="tasks">Задачи</a>
+      <a class="nav-link" href="#" data-view="task-create">Добавить задачу</a>
+      <a class="nav-link" href="#" data-view="settings">Настройки</a>
+      <a class="nav-link" href="#" data-view="users">Пользователи</a>
+      <a class="nav-link" href="/login.html">Выход</a>
+    </aside>
+
+    <main class="main">
+      <section class="view active" id="view-dashboard">
+        <div class="topbar">
+          <div>
+            <h1>Главная панель</h1>
+            <div class="muted">Переходы выполняются в рамках одной страницы (SPA).</div>
+          </div>
+        </div>
+        <div class="grid">
+          <article class="card"><h3>Проекты</h3><p class="muted">Просмотр созданных проектов.</p><button class="btn" data-view="projects">Открыть</button></article>
+          <article class="card"><h3>Задачи</h3><p class="muted">Информативный список с кураторами и исполнителями.</p><button class="btn" data-view="tasks">Открыть</button></article>
+          <article class="card"><h3>Пользователи</h3><p class="muted">Зарегистрированные сотрудники.</p><button class="btn" data-view="users">Открыть</button></article>
+        </div>
+      </section>
+
+      <section class="view" id="view-projects">
+        <div class="topbar">
+          <div><h1>Проекты</h1><div class="muted">Выберите проект, чтобы увидеть привязанные задачи.</div></div>
+        </div>
+        <table class="table" id="projects-table">
+          <thead><tr><th>ID</th><th>Ключ</th><th>Название</th><th>Куратор</th><th>Действие</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="view" id="view-project-details">
+        <div class="topbar">
+          <div><h1 id="project-title">Задачи проекта</h1><div class="muted" id="project-meta">Выберите проект из списка проектов.</div></div>
+          <button class="btn" data-view="projects">Назад к проектам</button>
+        </div>
+        <table class="table" id="project-tasks-table">
+          <thead><tr><th>Ключ</th><th>Название</th><th>Статус</th><th>Исполнители</th><th>Куратор</th><th>Срок</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="view" id="view-tasks">
+        <div class="topbar">
+          <div><h1>Задачи</h1><div class="muted">Список задач по всем проектам.</div></div>
+          <button class="btn primary" data-view="task-create">+ Новая задача</button>
+        </div>
+        <table class="table" id="tasks-table">
+          <thead><tr><th>Ключ</th><th>Название</th><th>Проект</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнители</th><th>Куратор</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="view" id="view-task-create">
+        <div class="topbar">
+          <div><h1>Добавление задачи</h1><div class="muted">Выбор куратора и исполнителей только из зарегистрированных пользователей.</div></div>
+          <button class="btn" data-view="tasks">К задачам</button>
+        </div>
+        <div class="card">
+          <div class="form-grid">
+            <div><label>Ключ</label><input id="task-key" placeholder="PRJ-200"></div>
+            <div><label>Название</label><input id="task-title" placeholder="Название задачи"></div>
+            <div><label>Проект</label><select id="task-project"></select></div>
+            <div><label>Тип</label><select id="task-type"><option>Task</option><option>Bug</option><option>Story</option><option>Epic</option></select></div>
+            <div><label>Статус</label><select id="task-status"><option>To Do</option><option>In Progress</option><option>Review</option><option>Done</option></select></div>
+            <div><label>Приоритет</label><select id="task-priority"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
+            <div><label>Куратор</label><select id="task-curator"></select></div>
+            <div><label>Исполнители (Ctrl/Cmd для мультивыбора)</label><select id="task-assignees" multiple></select></div>
+            <div><label>Срок</label><input id="task-due-date" type="date"></div>
+          </div>
+          <div style="margin-top: 12px;"><label>Описание</label><textarea id="task-description" placeholder="Описание задачи"></textarea></div>
+          <div style="margin-top: 12px;"><button class="btn primary" id="create-task-btn" type="button">Создать задачу</button></div>
+          <div class="muted" id="create-task-message" style="margin-top: 10px;"></div>
+        </div>
+      </section>
+
+      <section class="view" id="view-settings">
+        <div class="topbar"><div><h1>Настройки</h1><div class="muted">Конфигурация workspace, безопасности и уведомлений.</div></div></div>
+        <div class="settings-grid">
+          <div class="settings-block"><h3>Общие</h3><div class="muted">Язык, таймзона, формат даты.</div></div>
+          <div class="settings-block"><h3>Безопасность</h3><div class="muted">Политика пароля, 2FA, лимит попыток.</div></div>
+          <div class="settings-block"><h3>Уведомления</h3><div class="muted">Email, in-app, дайджест.</div></div>
+          <div class="settings-block"><h3>Интеграции</h3><div class="muted">Webhook, API token, S3/local.</div></div>
+        </div>
+      </section>
+
+      <section class="view" id="view-users">
+        <div class="topbar">
+          <div><h1>Пользователи</h1><div class="muted">Список зарегистрированных пользователей.</div></div>
+          <a class="btn primary" href="/register.html">+ Регистрация</a>
+        </div>
+        <table class="table" id="users-table">
+          <thead><tr><th>ID</th><th>Логин</th><th>ФИО</th><th>Должность</th><th>Роль</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script src="/client.js"></script>
+  <script>
+    TaskFlowClient.initAppPage();
+  </script>
+</body>
+</html>

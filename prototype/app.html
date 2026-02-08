@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - SPA</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app" id="app-root">
+    <aside class="sidebar">
+      <div class="logo">TaskFlow</div>
+      <a class="nav-link active" href="#" data-view="dashboard">Главная</a>
+      <a class="nav-link" href="#" data-view="projects">Проекты</a>
+      <a class="nav-link" href="#" data-view="tasks">Задачи</a>
+      <a class="nav-link" href="#" data-view="task-create">Добавить задачу</a>
+      <a class="nav-link" href="#" data-view="calendar">Календарь</a>
+      <a class="nav-link" href="#" data-view="reports">Отчеты</a>
+      <a class="nav-link" href="#" data-view="settings">Настройки</a>
+      <a class="nav-link" href="#" data-view="users">Пользователи</a>
+      <a class="nav-link" href="login.html">Выход</a>
+    </aside>
+
+    <main class="main">
+      <section class="view active" id="view-dashboard">
+        <div class="topbar">
+          <div>
+            <h1>Главная панель</h1>
+            <div class="muted">SPA-режим: разделы открываются в этом же окне.</div>
+          </div>
+        </div>
+
+        <div class="grid">
+          <article class="card">
+            <h3>Проекты</h3>
+            <p class="muted">Переход к списку проектов и задач внутри проекта.</p>
+            <button class="btn" data-view="projects">Открыть проекты</button>
+          </article>
+          <article class="card">
+            <h3>Задачи</h3>
+            <p class="muted">Исполнитель и куратор отображаются явно.</p>
+            <button class="btn" data-view="tasks">Открыть задачи</button>
+          </article>
+          <article class="card">
+            <h3>Пользователи</h3>
+            <p class="muted">Реестр зарегистрированных сотрудников.</p>
+            <button class="btn" data-view="users">Открыть пользователей</button>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-projects">
+        <div class="topbar">
+          <div>
+            <h1>Проекты</h1>
+            <div class="muted">Выберите проект, чтобы посмотреть привязанные задачи.</div>
+          </div>
+        </div>
+
+        <table class="table">
+          <thead><tr><th>Ключ</th><th>Название</th><th>Куратор</th><th>Участники</th><th>Действие</th></tr></thead>
+          <tbody>
+            <tr><td>PRJ</td><td>Система уведомлений</td><td>Екатерина Петрова</td><td>12</td><td><button class="btn open-project" data-project-id="PRJ">Открыть</button></td></tr>
+            <tr><td>OPS</td><td>Инфраструктура и мониторинг</td><td>Андрей Громов</td><td>8</td><td><button class="btn open-project" data-project-id="OPS">Открыть</button></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="view" id="view-project-details">
+        <div class="topbar">
+          <div>
+            <h1 id="project-title">Проект</h1>
+            <div class="muted" id="project-meta">Список задач проекта</div>
+          </div>
+          <button class="btn" data-view="projects">Назад</button>
+        </div>
+
+        <div class="card">
+          <table class="table" id="project-tasks-table">
+            <thead><tr><th>Ключ</th><th>Название</th><th>Статус</th><th>Исполнитель</th><th>Куратор</th><th>Срок</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="view" id="view-tasks">
+        <div class="topbar">
+          <div>
+            <h1>Задачи</h1>
+            <div class="muted">Информативный список по ТЗ.</div>
+          </div>
+          <button class="btn primary" data-view="task-create">+ Добавить задачу</button>
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr><th>Ключ</th><th>Название</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнитель</th><th>Куратор</th><th>Наблюдатели</th><th>Проект</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>PRJ-145</td><td>Release freeze checklist</td><td>Bug</td><td><span class="tag">In Progress</span></td><td>High</td><td>Мария Денисова</td><td>Екатерина Петрова</td><td>qa-team, client-guest</td><td>PRJ</td></tr>
+            <tr><td>OPS-33</td><td>Обновить dashboard алертов</td><td>Task</td><td><span class="tag">Review</span></td><td>Medium</td><td>Иван Чернов</td><td>Андрей Громов</td><td>devops-lead</td><td>OPS</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="view" id="view-task-create">
+        <div class="topbar">
+          <div>
+            <h1>Добавление задачи</h1>
+            <div class="muted">Исполнитель и куратор выбираются из зарегистрированных пользователей.</div>
+          </div>
+          <button class="btn" data-view="tasks">К задачам</button>
+        </div>
+
+        <div class="card">
+          <div class="form-grid">
+            <div><label>Название</label><input placeholder="Название"></div>
+            <div><label>Ключ</label><input placeholder="PRJ-200"></div>
+            <div><label>Проект</label><select><option>PRJ</option><option>OPS</option></select></div>
+            <div><label>Тип</label><select><option>Task</option><option>Bug</option><option>Story</option></select></div>
+            <div><label>Статус</label><select><option>To Do</option><option>In Progress</option><option>Review</option><option>Done</option></select></div>
+            <div><label>Приоритет</label><select><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
+            <div><label>Куратор</label><select data-user-select data-allow-empty="1"></select></div>
+            <div><label>Исполнители (можно несколько)</label><select multiple data-user-select></select></div>
+          </div>
+          <div style="margin-top:12px;"><label>Описание</label><textarea placeholder="Описание и критерии"></textarea></div>
+          <div style="margin-top:12px;"><button class="btn primary" data-view="tasks">Сохранить</button></div>
+        </div>
+      </section>
+
+      <section class="view" id="view-calendar">
+        <div class="topbar"><div><h1>Календарь</h1><div class="muted">Дедлайны по задачам.</div></div></div>
+        <div class="grid">
+          <article class="card"><h3>10.02.2026</h3><p class="muted">PRJ-132 UX workshop</p></article>
+          <article class="card"><h3>17.02.2026</h3><p class="muted">PRJ-145 Release freeze</p></article>
+          <article class="card"><h3>28.02.2026</h3><p class="muted">OPS-33 Dashboard alerts</p></article>
+        </div>
+      </section>
+
+      <section class="view" id="view-reports">
+        <div class="topbar"><div><h1>Отчеты</h1><div class="muted">Прогресс, просрочки и нагрузка.</div></div></div>
+        <div class="grid">
+          <article class="card"><h3>Прогресс спринта</h3><p class="muted">67% выполнено</p></article>
+          <article class="card"><h3>Просрочки</h3><p class="muted">3 задачи</p></article>
+          <article class="card"><h3>Нагрузка</h3><p class="muted">QA перегружен</p></article>
+        </div>
+      </section>
+
+      <section class="view" id="view-settings">
+        <div class="topbar">
+          <div>
+            <h1>Настройки</h1>
+            <div class="muted">Полноценные настройки Workspace и безопасности.</div>
+          </div>
+          <button class="btn primary">Сохранить изменения</button>
+        </div>
+
+        <div class="settings-grid">
+          <div class="settings-block">
+            <h3>Общие</h3>
+            <div class="form-grid">
+              <div><label>Workspace</label><input value="TaskFlow МВД"></div>
+              <div><label>Язык</label><select><option>Русский</option><option>English</option></select></div>
+              <div><label>Часовой пояс</label><select><option>Europe/Moscow</option><option>UTC</option></select></div>
+              <div><label>Формат даты</label><select><option>DD.MM.YYYY</option><option>YYYY-MM-DD</option></select></div>
+            </div>
+          </div>
+
+          <div class="settings-block">
+            <h3>Безопасность</h3>
+            <div class="form-grid">
+              <div><label>Политика пароля</label><select><option>Строгая</option><option>Стандартная</option></select></div>
+              <div><label>2FA</label><select><option>Включено</option><option>Выключено</option></select></div>
+              <div><label>Лимит попыток</label><input value="5"></div>
+              <div><label>Сессия (мин)</label><input value="60"></div>
+            </div>
+          </div>
+
+          <div class="settings-block">
+            <h3>Уведомления</h3>
+            <div class="form-grid">
+              <div><label>Email</label><select><option>Включено</option><option>Выключено</option></select></div>
+              <div><label>In-app</label><select><option>Включено</option><option>Выключено</option></select></div>
+              <div><label>Дайджест</label><select><option>Ежедневно</option><option>Еженедельно</option></select></div>
+              <div><label>Просрочки</label><select><option>Уведомлять</option><option>Не уведомлять</option></select></div>
+            </div>
+          </div>
+
+          <div class="settings-block">
+            <h3>Интеграции</h3>
+            <div class="form-grid">
+              <div><label>Webhook URL</label><input value="https://example.local/webhook"></div>
+              <div><label>API Token</label><input value="••••••••••"></div>
+              <div><label>Хранилище</label><select><option>Local</option><option>S3</option></select></div>
+              <div><label>Slack/Telegram</label><select><option>Подключено</option><option>Не подключено</option></select></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-users">
+        <div class="topbar">
+          <div>
+            <h1>Пользователи</h1>
+            <div class="muted">Список зарегистрированных пользователей.</div>
+          </div>
+          <a class="btn primary" href="register.html">+ Зарегистрировать пользователя</a>
+        </div>
+
+        <table class="table" id="users-table">
+          <thead><tr><th>Логин</th><th>ФИО</th><th>Должность</th><th>Роль</th><th>Статус</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    TaskFlowAuth.initAppPage();
+  </script>
+</body>
+</html>

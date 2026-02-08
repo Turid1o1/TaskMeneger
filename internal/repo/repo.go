@@ -1,0 +1,213 @@
+package repo
+
+import (
+	"context"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/mvd/taskflow/internal/models"
+)
+
+type Repository struct {
+	db     *sql.DB
+	pepper string
+}
+
+func New(db *sql.DB, pepper string) *Repository {
+	return &Repository{db: db, pepper: pepper}
+}
+
+func (r *Repository) PasswordHash(password string) string {
+	raw := password + ":" + r.pepper
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}
+
+func (r *Repository) Register(ctx context.Context, in models.RegisterInput) error {
+	if in.Password != in.RepeatPassword {
+		return errors.New("пароли не совпадают")
+	}
+	hash := r.PasswordHash(in.Password)
+	_, err := r.db.ExecContext(ctx, `
+INSERT INTO users (login, password_hash, full_name, position, role)
+VALUES (?, ?, ?, ?, 'Member')
+`, strings.TrimSpace(in.Login), hash, strings.TrimSpace(in.FullName), strings.TrimSpace(in.Position))
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return errors.New("логин уже существует")
+		}
+		return fmt.Errorf("insert user: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) Login(ctx context.Context, in models.LoginInput) (models.User, error) {
+	var u models.User
+	var passwordHash string
+	err := r.db.QueryRowContext(ctx, `
+SELECT id, login, full_name, position, role, password_hash
+FROM users WHERE login = ?
+`, strings.TrimSpace(in.Login)).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &passwordHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, errors.New("неверный логин или пароль")
+		}
+		return models.User{}, fmt.Errorf("query user: %w", err)
+	}
+
+	if passwordHash != r.PasswordHash(in.Password) {
+		return models.User{}, errors.New("неверный логин или пароль")
+	}
+	return u, nil
+}
+
+func (r *Repository) Users(ctx context.Context) ([]models.User, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT id, login, full_name, position, role
+FROM users
+ORDER BY id
+`)
+	if err != nil {
+		return nil, fmt.Errorf("query users: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]models.User, 0)
+	for rows.Next() {
+		var u models.User
+		if err := rows.Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role); err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
+		}
+		result = append(result, u)
+	}
+	return result, rows.Err()
+}
+
+func (r *Repository) Projects(ctx context.Context) ([]models.Project, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT p.id, p.key, p.name, p.curator_user_id, u.full_name
+FROM projects p
+JOIN users u ON u.id = p.curator_user_id
+ORDER BY p.id
+`)
+	if err != nil {
+		return nil, fmt.Errorf("query projects: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]models.Project, 0)
+	for rows.Next() {
+		var p models.Project
+		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.CuratorUserID, &p.CuratorName); err != nil {
+			return nil, fmt.Errorf("scan project: %w", err)
+		}
+		result = append(result, p)
+	}
+	return result, rows.Err()
+}
+
+func (r *Repository) Tasks(ctx context.Context, projectID *int64) ([]models.Task, error) {
+	query := `
+SELECT t.id, t.key, t.title, t.description, t.type, t.status, t.priority,
+       t.project_id, p.key, t.curator_user_id, cu.full_name, t.due_date
+FROM tasks t
+JOIN projects p ON p.id = t.project_id
+JOIN users cu ON cu.id = t.curator_user_id
+`
+	args := make([]any, 0)
+	if projectID != nil {
+		query += " WHERE t.project_id = ?"
+		args = append(args, *projectID)
+	}
+	query += " ORDER BY t.id"
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query tasks: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]models.Task, 0)
+	for rows.Next() {
+		var t models.Task
+		var due sql.NullString
+		if err := rows.Scan(&t.ID, &t.Key, &t.Title, &t.Description, &t.Type, &t.Status, &t.Priority, &t.ProjectID, &t.ProjectKey, &t.CuratorUserID, &t.CuratorName, &due); err != nil {
+			return nil, fmt.Errorf("scan task: %w", err)
+		}
+		if due.Valid {
+			t.DueDate = &due.String
+		}
+
+		assignees, err := r.taskAssignees(ctx, t.ID)
+		if err != nil {
+			return nil, err
+		}
+		t.Assignees = assignees
+		result = append(result, t)
+	}
+
+	return result, rows.Err()
+}
+
+func (r *Repository) taskAssignees(ctx context.Context, taskID int64) ([]models.User, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT u.id, u.login, u.full_name, u.position, u.role
+FROM task_assignees ta
+JOIN users u ON u.id = ta.user_id
+WHERE ta.task_id = ?
+ORDER BY u.id
+`, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("query task assignees: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]models.User, 0)
+	for rows.Next() {
+		var u models.User
+		if err := rows.Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role); err != nil {
+			return nil, fmt.Errorf("scan assignee: %w", err)
+		}
+		result = append(result, u)
+	}
+	return result, rows.Err()
+}
+
+func (r *Repository) CreateTask(ctx context.Context, in models.CreateTaskInput) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx, `
+INSERT INTO tasks (key, title, description, type, status, priority, project_id, curator_user_id, due_date)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), strings.TrimSpace(in.Type), strings.TrimSpace(in.Status), strings.TrimSpace(in.Priority), in.ProjectID, in.CuratorID, in.DueDate)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return errors.New("ключ задачи уже существует")
+		}
+		return fmt.Errorf("insert task: %w", err)
+	}
+
+	taskID, err := res.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("task id: %w", err)
+	}
+
+	for _, uid := range in.AssigneeIDs {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO task_assignees (task_id, user_id) VALUES (?, ?)`, taskID, uid); err != nil {
+			return fmt.Errorf("insert task assignee: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+	return nil
+}

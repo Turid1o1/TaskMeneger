@@ -1,0 +1,55 @@
+<svg width="1600" height="1100" viewBox="0 0 1600 1100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="1100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F4F7FB"/>
+      <stop offset="1" stop-color="#EAF0F8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="1100" fill="url(#bg)"/>
+
+  <rect x="120" y="90" width="1360" height="920" rx="28" fill="#FFFFFF"/>
+
+  <rect x="120" y="90" width="620" height="920" rx="28" fill="#0F172A"/>
+  <text x="190" y="180" fill="#FFFFFF" font-size="44" font-family="Helvetica, Arial, sans-serif" font-weight="700">TaskFlow</text>
+  <text x="190" y="235" fill="#9FB0C8" font-size="20" font-family="Helvetica, Arial, sans-serif">Project and team delivery workspace</text>
+
+  <rect x="190" y="300" width="480" height="200" rx="20" fill="#17253D"/>
+  <text x="220" y="348" fill="#DCE6F5" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="700">Что внутри MVP</text>
+  <text x="220" y="388" fill="#A8B8CD" font-size="15" font-family="Helvetica, Arial, sans-serif">• Workspace и роли (Owner/Admin/Member/Guest)</text>
+  <text x="220" y="418" fill="#A8B8CD" font-size="15" font-family="Helvetica, Arial, sans-serif">• Канбан + список + календарь</text>
+  <text x="220" y="448" fill="#A8B8CD" font-size="15" font-family="Helvetica, Arial, sans-serif">• История задачи, комментарии, вложения</text>
+  <text x="220" y="478" fill="#A8B8CD" font-size="15" font-family="Helvetica, Arial, sans-serif">• Уведомления email/in-app</text>
+
+  <rect x="190" y="540" width="220" height="52" rx="12" fill="#2563EB"/>
+  <text x="246" y="573" fill="#FFFFFF" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="700">View Demo</text>
+
+  <text x="190" y="900" fill="#6F86A6" font-size="14" font-family="Helvetica, Arial, sans-serif">RU / EN · Timezone-aware · Keyboard shortcuts</text>
+
+  <rect x="820" y="210" width="560" height="650" rx="24" fill="#F8FAFD"/>
+  <text x="870" y="286" fill="#0F172A" font-size="34" font-family="Helvetica, Arial, sans-serif" font-weight="700">Вход в Workspace</text>
+  <text x="870" y="322" fill="#64748B" font-size="16" font-family="Helvetica, Arial, sans-serif">Войдите для доступа к проектам и задачам</text>
+
+  <text x="870" y="380" fill="#334155" font-size="14" font-family="Helvetica, Arial, sans-serif">Email</text>
+  <rect x="870" y="395" width="460" height="54" rx="12" fill="#FFFFFF"/>
+  <text x="894" y="429" fill="#94A3B8" font-size="15" font-family="Helvetica, Arial, sans-serif">you@company.com</text>
+
+  <text x="870" y="485" fill="#334155" font-size="14" font-family="Helvetica, Arial, sans-serif">Пароль</text>
+  <rect x="870" y="500" width="460" height="54" rx="12" fill="#FFFFFF"/>
+  <text x="894" y="534" fill="#94A3B8" font-size="15" font-family="Helvetica, Arial, sans-serif">••••••••••••</text>
+
+  <rect x="870" y="578" width="20" height="20" rx="6" fill="#FFFFFF"/>
+  <text x="900" y="594" fill="#475569" font-size="14" font-family="Helvetica, Arial, sans-serif">Запомнить меня</text>
+  <text x="1204" y="594" fill="#2563EB" font-size="14" font-family="Helvetica, Arial, sans-serif">Забыли пароль?</text>
+
+  <rect x="870" y="628" width="460" height="56" rx="12" fill="#2563EB"/>
+  <text x="1061" y="662" fill="#FFFFFF" font-size="16" font-family="Helvetica, Arial, sans-serif" font-weight="700">Войти</text>
+
+  <rect x="870" y="700" width="220" height="48" rx="12" fill="#FFFFFF"/>
+  <text x="925" y="730" fill="#334155" font-size="15" font-family="Helvetica, Arial, sans-serif">Google SSO</text>
+
+  <rect x="1110" y="700" width="220" height="48" rx="12" fill="#FFFFFF"/>
+  <text x="1162" y="730" fill="#334155" font-size="15" font-family="Helvetica, Arial, sans-serif">GitHub SSO</text>
+
+  <text x="870" y="790" fill="#64748B" font-size="14" font-family="Helvetica, Arial, sans-serif">Нет аккаунта? Обратитесь к администратору Workspace</text>
+</svg>

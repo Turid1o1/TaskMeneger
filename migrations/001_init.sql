@@ -1,0 +1,42 @@
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  login TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  position TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'Member',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  curator_user_id INTEGER NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(curator_user_id) REFERENCES users(id)
+);
+
+CREATE TABLE tasks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  priority TEXT NOT NULL,
+  project_id INTEGER NOT NULL,
+  curator_user_id INTEGER NOT NULL,
+  due_date TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(project_id) REFERENCES projects(id),
+  FOREIGN KEY(curator_user_id) REFERENCES users(id)
+);
+
+CREATE TABLE task_assignees (
+  task_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (task_id, user_id),
+  FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);

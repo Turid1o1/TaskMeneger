@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Календарь</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">TaskFlow</div>
+      <a class="nav-link" href="dashboard.html">Главная</a>
+      <a class="nav-link" href="tasks.html">Задачи</a>
+      <a class="nav-link active" href="calendar.html">Календарь</a>
+      <a class="nav-link" href="task-create.html">Быстрое добавление</a>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1>Календарь задач</h1>
+          <div class="muted">Просмотр дедлайнов и быстрый переход к задаче.</div>
+        </div>
+        <a class="btn primary" href="task-create.html">+ Создать задачу</a>
+      </div>
+
+      <div class="grid">
+        <article class="card"><h3>10 февраля</h3><p class="muted">PRJ-132 UX workshop</p><a class="btn" href="task-details.html">Открыть задачу</a></article>
+        <article class="card"><h3>17 февраля</h3><p class="muted">PRJ-145 Release freeze</p><a class="btn" href="task-details.html">Открыть задачу</a></article>
+        <article class="card"><h3>28 февраля</h3><p class="muted">PRJ-152 Проверка регрессии</p><a class="btn" href="task-details.html">Открыть задачу</a></article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

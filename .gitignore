@@ -1,0 +1,12 @@
+# Runtime
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Build
+/bin/
+/dist/
+
+# OS
+.DS_Store

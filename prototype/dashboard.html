@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Главная</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">TaskFlow</div>
+      <a class="nav-link active" href="dashboard.html">Главная</a>
+      <a class="nav-link" href="tasks.html">Задачи </a>
+      <a class="nav-link" href="calendar.html">Календарь </a>
+      <a class="nav-link" href="reports.html">Отчеты </a>
+      <a class="nav-link" href="settings.html">Настройки </a>
+      <a class="nav-link" href="users-roles.html">Пользователи и роли</a>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1>Главная панель</h1>
+          <div class="muted">Все кнопки ниже открывают страницы в этом же окне.</div>
+        </div>
+        <a class="btn primary" href="task-create.html">+ Добавить задачу </a>
+      </div>
+
+      <section class="grid">
+        <article class="card">
+          <h3>Задачи</h3>
+          <p class="muted">Список задач, фильтры, быстрые действия.</p>
+          <div class="links">
+            <a class="btn" href="tasks.html">Открыть задачи</a>
+            <a class="btn" href="task-create.html">Создать задачу</a>
+            <a class="btn" href="task-details.html">Детали задачи</a>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>Планирование</h3>
+          <p class="muted">Календарь, дедлайны, перетаскивание дат.</p>
+          <div class="links">
+            <a class="btn" href="calendar.html">Открыть календарь</a>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>Управление</h3>
+          <p class="muted">Настройки Workspace, роли и доступы.</p>
+          <div class="links">
+            <a class="btn" href="settings.html">Открыть настройки</a>
+            <a class="btn" href="users-roles.html">Пользователи и роли</a>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Добавление задачи</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">TaskFlow</div>
+      <a class="nav-link" href="dashboard.html">Главная</a>
+      <a class="nav-link active" href="task-create.html">Добавить задачу</a>
+      <a class="nav-link" href="tasks.html">Задачи</a>
+      <a class="nav-link" href="calendar.html">Календарь</a>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1>Новое окно: добавление задачи</h1>
+          <div class="muted">Экран открывается по кнопке "Добавить задачу" из любого раздела.</div>
+        </div>
+        <a class="btn" href="tasks.html">Назад к задачам</a>
+      </div>
+
+      <div class="card">
+        <div class="form-grid">
+          <div>
+            <label>Название</label>
+            <input placeholder="Например: Подготовить релиз">
+          </div>
+          <div>
+            <label>Ключ</label>
+            <input placeholder="PRJ-200">
+          </div>
+          <div>
+            <label>Тип</label>
+            <select><option>Task</option><option>Bug</option><option>Story</option><option>Epic</option></select>
+          </div>
+          <div>
+            <label>Приоритет</label>
+            <select><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
+          </div>
+          <div>
+            <label>Статус</label>
+            <select><option>To Do</option><option>In Progress</option><option>Review</option><option>Done</option></select>
+          </div>
+          <div>
+            <label>Дедлайн</label>
+            <input type="date">
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <label>Описание (Markdown)</label>
+          <textarea placeholder="Описание задачи, критерии приемки, ссылки"></textarea>
+        </div>
+        <div style="margin-top:12px;">
+          <a class="btn primary" href="task-details.html">Сохранить и открыть детали</a>
+          <a class="btn" href="tasks.html">Отмена</a>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

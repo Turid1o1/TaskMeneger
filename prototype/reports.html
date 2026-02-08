@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Отчеты</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">TaskFlow</div>
+      <a class="nav-link" href="dashboard.html">Главная</a>
+      <a class="nav-link active" href="reports.html">Отчеты</a>
+      <a class="nav-link" href="tasks.html">Задачи</a>
+      <a class="nav-link" href="calendar.html">Календарь</a>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1>Отчеты и аналитика</h1>
+          <div class="muted">Прогресс, просрочки, нагрузка по команде.</div>
+        </div>
+      </div>
+
+      <section class="grid">
+        <article class="card"><h3>Прогресс проекта</h3><p class="muted">67% Done по Sprint 14</p></article>
+        <article class="card"><h3>Просрочки</h3><p class="muted">3 задачи, приоритет High/Critical</p></article>
+        <article class="card"><h3>Нагрузка</h3><p class="muted">Перегруз: QA team, свободно: Design</p></article>
+      </section>
+      <div style="margin-top:12px;"><a class="btn" href="task-details.html">Провалиться в задачу из отчета</a></div>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Вход</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="login-page">
+  <section class="login-shell">
+    <div class="login-visual">
+      <img src="/assets/login-hero.png" alt="Иллюстрация страницы входа">
+    </div>
+
+    <div class="login-panel">
+      <div class="auth-card">
+        <h1>ОТДЕЛ ПОДДЕРЖКИ<br>И РАЗВИТИЯ ИНФРАСТРУКТУРЫ</h1>
+        <div class="auth-sub">Внутренняя информационная система TaskFlow</div>
+
+        <input class="auth-input" id="login-input" type="text" placeholder="Логин">
+        <input class="auth-input" id="password-input" type="password" placeholder="Пароль">
+
+        <div class="auth-actions">
+          <button class="auth-btn" id="login-btn" type="button">Вход</button>
+          <a class="auth-btn secondary" href="/register.html">Регистрация</a>
+        </div>
+
+        <div class="auth-footer" id="login-message">ФГУП «ПВС» МВД России</div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/client.js"></script>
+  <script>
+    TaskFlowClient.initLoginPage();
+  </script>
+</body>
+</html>

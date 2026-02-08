@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Пользователи и роли</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">TaskFlow</div>
+      <a class="nav-link" href="dashboard.html">Главная</a>
+      <a class="nav-link active" href="users-roles.html">Пользователи и роли</a>
+      <a class="nav-link" href="settings.html">Настройки</a>
+      <a class="nav-link" href="tasks.html">Задачи</a>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1>RBAC: пользователи и роли</h1>
+          <div class="muted">Owner/Admin/Manager/Member/Guest по ТЗ.</div>
+        </div>
+      </div>
+
+      <table class="table">
+        <thead><tr><th>Пользователь</th><th>Роль</th><th>Действия</th></tr></thead>
+        <tbody>
+          <tr><td>owner@taskflow.dev</td><td>Owner</td><td><a class="btn" href="settings.html">Изменить</a></td></tr>
+          <tr><td>pm@taskflow.dev</td><td>Project Manager</td><td><a class="btn" href="settings.html">Изменить</a></td></tr>
+          <tr><td>guest@client.dev</td><td>Guest</td><td><a class="btn" href="settings.html">Изменить</a></td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:12px;"><a class="btn primary" href="settings.html">Пригласить пользователя </a></div>
+    </main>
+  </div>
+</body>
+</html>

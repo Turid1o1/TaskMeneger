@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Детали задачи</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">TaskFlow</div>
+      <a class="nav-link" href="dashboard.html">Главная</a>
+      <a class="nav-link" href="tasks.html">Задачи</a>
+      <a class="nav-link active" href="task-details.html">Детали задачи</a>
+      <a class="nav-link" href="task-create.html">Добавить новую</a>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1>PRJ-145: Release freeze checklist</h1>
+          <div class="muted">История изменений, комментарии, вложения, watchers.</div>
+        </div>
+        <a class="btn" href="tasks.html">К списку задач</a>
+      </div>
+
+      <div class="row">
+        <div class="col card">
+          <h3>Описание</h3>
+          <p class="muted">Проверить critical/high баги, зафиксировать изменения в audit trail, согласовать go-live.</p>
+          <h3>Комментарии</h3>
+          <p><strong>@qa-team:</strong> Остался PRJ-152. Проверка в работе.</p>
+          <p><strong>@pm:</strong> Дедлайн обновлен до 28.02.2026.</p>
+          <a class="btn" href="task-create.html">Дублировать как новую задачу</a>
+        </div>
+
+        <div class="col card">
+          <h3>Поля задачи</h3>
+          <p class="muted">Статус: In Progress</p>
+          <p class="muted">Приоритет: High</p>
+          <p class="muted">Исполнитель: Maria Dev</p>
+          <p class="muted">Watchers: qa-team, client-guest</p>
+          <div class="links">
+            <a class="btn" href="calendar.html">Открыть в календаре</a>
+            <a class="btn" href="reports.html">Открыть в отчете</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

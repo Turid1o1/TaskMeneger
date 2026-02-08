@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TaskFlow - Задачи</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">TaskFlow</div>
+      <a class="nav-link" href="dashboard.html">Главная</a>
+      <a class="nav-link active" href="tasks.html">Задачи</a>
+      <a class="nav-link" href="calendar.html">Календарь</a>
+      <a class="nav-link" href="reports.html">Отчеты</a>
+      <a class="nav-link" href="settings.html">Настройки</a>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1>Список задач</h1>
+          <div class="muted">Фильтры и переходы к созданию и детальному просмотру задачи.</div>
+        </div>
+        <a class="btn primary" href="task-create.html">Открыть окно добавления задачи</a>
+      </div>
+
+      <table class="table">
+        <thead>
+          <tr><th>Ключ</th><th>Название</th><th>Статус</th><th>Приоритет</th><th>Действия</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>PRJ-145</td><td>Release freeze checklist</td><td><span class="tag">In Progress</span></td><td>High</td>
+            <td><a class="btn" href="task-details.html">Открыть детали</a></td>
+          </tr>
+          <tr>
+            <td>PRJ-152</td><td>Исправить баг в уведомлениях</td><td><span class="tag">To Do</span></td><td>Critical</td>
+            <td><a class="btn" href="task-details.html">Открыть детали</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </div>
+</body>
+</html>

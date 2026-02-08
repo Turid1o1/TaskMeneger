@@ -1,0 +1,19 @@
+[Unit]
+Description=TaskFlow Go API
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/taskflow
+ExecStart=/opt/taskflow/taskflow-server
+Restart=always
+RestartSec=3
+Environment=APP_ADDR=:8080
+Environment=APP_DB_PATH=/opt/taskflow/data/taskflow.db
+Environment=APP_STATIC_PATH=/opt/taskflow/web
+Environment=APP_AUTH_PEPPER=change-me
+
+[Install]
+WantedBy=multi-user.target
