@@ -415,6 +415,43 @@ textarea { min-height: 90px; }
   padding-left: var(--space-8);
   padding-right: var(--space-8);
 }
+.chat-log {
+  height: 360px;
+  overflow: auto;
+  border: 1px solid #d6dfef;
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: var(--space-12);
+  display: grid;
+  gap: var(--space-8);
+}
+.chat-empty {
+  color: #64748b;
+  font-size: 13px;
+}
+.chat-msg {
+  background: #f8fbff;
+  border: 1px solid #dbe8ff;
+  border-radius: var(--radius-sm);
+  padding: var(--space-8);
+}
+.chat-msg-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-8);
+  color: #334155;
+  font-size: 12px;
+}
+.chat-msg-body {
+  margin-top: var(--space-4);
+  color: #0f172a;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+#view-messenger .row-actions input {
+  flex: 1;
+}
 
 .table {
   width: 100%; border-collapse: separate; border-spacing: 0; margin-top: var(--space-12);

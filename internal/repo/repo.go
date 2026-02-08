@@ -1179,6 +1179,93 @@ func (r *Repository) ProjectDepartmentID(ctx context.Context, projectID int64) (
 	return departmentID, nil
 }
 
+func (r *Repository) TaskDepartmentID(ctx context.Context, taskID int64) (int64, error) {
+	var departmentID int64
+	err := r.db.QueryRowContext(ctx, `
+SELECT COALESCE(p.department_id, 1)
+FROM tasks t
+JOIN projects p ON p.id = t.project_id
+WHERE t.id = ?
+`, taskID).Scan(&departmentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, errors.New("задача не найдена")
+		}
+		return 0, fmt.Errorf("get task department: %w", err)
+	}
+	return departmentID, nil
+}
+
+func (r *Repository) DepartmentMessages(ctx context.Context, departmentID int64) ([]models.ChatMessage, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT m.id, m.scope_type, m.scope_id, m.author_user_id, u.full_name, m.body, m.created_at
+FROM chat_messages m
+JOIN users u ON u.id = m.author_user_id
+WHERE m.scope_type = 'department' AND m.scope_id = ?
+ORDER BY m.id ASC
+`, departmentID)
+	if err != nil {
+		return nil, fmt.Errorf("query department messages: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]models.ChatMessage, 0)
+	for rows.Next() {
+		var m models.ChatMessage
+		if err := rows.Scan(&m.ID, &m.ScopeType, &m.ScopeID, &m.AuthorID, &m.AuthorName, &m.Body, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan department message: %w", err)
+		}
+		items = append(items, m)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) TaskMessages(ctx context.Context, taskID int64) ([]models.ChatMessage, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT m.id, m.scope_type, m.scope_id, m.author_user_id, u.full_name, m.body, m.created_at
+FROM chat_messages m
+JOIN users u ON u.id = m.author_user_id
+WHERE m.scope_type = 'task' AND m.scope_id = ?
+ORDER BY m.id ASC
+`, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("query task messages: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]models.ChatMessage, 0)
+	for rows.Next() {
+		var m models.ChatMessage
+		if err := rows.Scan(&m.ID, &m.ScopeType, &m.ScopeID, &m.AuthorID, &m.AuthorName, &m.Body, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan task message: %w", err)
+		}
+		items = append(items, m)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) CreateDepartmentMessage(ctx context.Context, departmentID, authorID int64, body string) error {
+	_, err := r.db.ExecContext(ctx, `
+INSERT INTO chat_messages (scope_type, scope_id, author_user_id, body)
+VALUES ('department', ?, ?, ?)
+`, departmentID, authorID, strings.TrimSpace(body))
+	if err != nil {
+		return fmt.Errorf("insert department message: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) CreateTaskMessage(ctx context.Context, taskID, authorID int64, body string) error {
+	_, err := r.db.ExecContext(ctx, `
+INSERT INTO chat_messages (scope_type, scope_id, author_user_id, body)
+VALUES ('task', ?, ?, ?)
+`, taskID, authorID, strings.TrimSpace(body))
+	if err != nil {
+		return fmt.Errorf("insert task message: %w", err)
+	}
+	return nil
+}
+
 func (r *Repository) taskAssignees(ctx context.Context, taskID int64) ([]models.User, error) {
 	return r.linkedUsers(ctx, `
 SELECT u.id, u.login, u.full_name, u.position, u.role

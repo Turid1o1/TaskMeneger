@@ -390,12 +390,14 @@
     const navDashboard = document.getElementById('nav-dashboard');
     const navProjects = document.getElementById('nav-projects');
     const navTasks = document.getElementById('nav-tasks');
+    const navMessenger = document.getElementById('nav-messenger');
     const navSettings = document.getElementById('nav-settings');
     if (isScopedRole) {
       if (navDashboard) navDashboard.style.display = 'none';
       if (navSettings) navSettings.style.display = 'none';
       if (navProjects) navProjects.textContent = 'Мои проекты';
       if (navTasks) navTasks.textContent = 'Мои задачи';
+      if (navMessenger) navMessenger.textContent = 'Мессенджер';
       document.querySelectorAll('button[data-view="dashboard"]').forEach((btn) => {
         btn.dataset.view = 'tasks';
         if (!btn.textContent.includes('Назад')) return;
@@ -509,7 +511,7 @@
 
     function refreshUserPositionOptions(selectedValue) {
       const depID = Number(document.getElementById('user-department')?.value || session.department_id || 1);
-      fillPositionSelect(document.getElementById('user-position'), depID, selectedValue || '');
+      fillPositionSelect(document.getElementById('user-position'), depID, selectedValue || '', false);
     }
 
     function applyUserEditorPermissions() {
@@ -761,6 +763,100 @@
       }
     }
 
+    function renderChatMessages(rootID, items) {
+      const root = document.getElementById(rootID);
+      if (!root) return;
+      root.innerHTML = '';
+      if (!items.length) {
+        root.innerHTML = '<div class="chat-empty">Пока нет сообщений</div>';
+        return;
+      }
+      items.forEach((m) => {
+        const el = document.createElement('article');
+        el.className = 'chat-msg';
+        el.innerHTML = `
+          <div class="chat-msg-head">
+            <strong>${escapeHTML(m.author_name || 'Пользователь')}</strong>
+            <span>${escapeHTML(m.created_at || '')}</span>
+          </div>
+          <div class="chat-msg-body">${escapeHTML(m.body || '')}</div>
+        `;
+        root.appendChild(el);
+      });
+      root.scrollTop = root.scrollHeight;
+    }
+
+    function fillMessengerSelectors() {
+      const depSelect = document.getElementById('messenger-department-select');
+      const taskSelect = document.getElementById('messenger-task-select');
+      if (depSelect) {
+        if (isSuper) {
+          fillSelect(depSelect, departments, 'id', 'name', true);
+          if (!depSelect.value && departments.length) depSelect.value = String(departments[0].id);
+        } else {
+          fillSelect(depSelect, departments, 'id', 'name', false);
+          depSelect.value = String(session.department_id || '');
+          depSelect.disabled = true;
+        }
+      }
+      if (taskSelect) {
+        fillSelect(taskSelect, tasks, 'id', (t) => t.title, true);
+      }
+    }
+
+    async function loadDepartmentChat() {
+      const depSelect = document.getElementById('messenger-department-select');
+      if (!depSelect) return;
+      const depID = Number(depSelect.value || session.department_id || 0);
+      if (!depID) {
+        renderChatMessages('department-chat-log', []);
+        return;
+      }
+      const qs = `?department_id=${depID}`;
+      const data = await api(`/api/v1/messages/department${qs}`);
+      renderChatMessages('department-chat-log', data.items || []);
+    }
+
+    async function loadTaskChat() {
+      const taskSelect = document.getElementById('messenger-task-select');
+      if (!taskSelect) return;
+      const taskID = Number(taskSelect.value || 0);
+      if (!taskID) {
+        renderChatMessages('task-chat-log', []);
+        return;
+      }
+      const data = await api(`/api/v1/messages/task?task_id=${taskID}`);
+      renderChatMessages('task-chat-log', data.items || []);
+    }
+
+    async function sendDepartmentMessage() {
+      const depSelect = document.getElementById('messenger-department-select');
+      const input = document.getElementById('department-chat-input');
+      const depID = Number(depSelect?.value || session.department_id || 0);
+      const body = String(input?.value || '').trim();
+      if (!depID || !body) return;
+      await api('/api/v1/messages/department', {
+        method: 'POST',
+        body: JSON.stringify({ department_id: depID, body })
+      });
+      if (input) input.value = '';
+      await loadDepartmentChat();
+    }
+
+    async function sendTaskMessage() {
+      const taskSelect = document.getElementById('messenger-task-select');
+      const input = document.getElementById('task-chat-input');
+      const taskID = Number(taskSelect?.value || 0);
+      const body = String(input?.value || '').trim();
+      if (!taskID || !body) return;
+      await api(`/api/v1/messages/task?task_id=${taskID}`, {
+        method: 'POST',
+        body: JSON.stringify({ task_id: taskID, body })
+      });
+      if (input) input.value = '';
+      await loadTaskChat();
+    }
+
     async function loadDepartments() {
       if (isScopedRole) {
         departments = [{
@@ -769,12 +865,14 @@
         }];
         fillSelect(document.getElementById('project-department'), departments, 'id', 'name', true);
         fillSelect(document.getElementById('user-department'), departments, 'id', 'name', false);
+        fillMessengerSelectors();
         return;
       }
       const data = await api('/api/v1/departments');
       departments = data.items || [];
       fillSelect(document.getElementById('project-department'), departments, 'id', 'name', true);
       fillSelect(document.getElementById('user-department'), departments, 'id', 'name', false);
+      fillMessengerSelectors();
     }
 
     function refreshStaffSelectors() {
@@ -817,6 +915,7 @@
       projects = data.items || [];
 
       fillSelect(document.getElementById('task-project'), projects, 'id', (p) => p.name, true);
+      fillMessengerSelectors();
 
       const tbody = document.querySelector('#projects-table tbody');
       if (!tbody) return;
@@ -846,6 +945,7 @@
       const tbody = document.querySelector('#tasks-table tbody');
       if (!tbody) return;
       tbody.innerHTML = '';
+      fillMessengerSelectors();
 
       const pageData = pagedItems('tasks', tasks);
       pageData.items.forEach((t, idx) => {
@@ -1065,7 +1165,7 @@
       const item = data.item || {};
       document.getElementById('profile-login').value = item.login || '';
       document.getElementById('profile-fullname').value = item.full_name || '';
-      fillPositionSelect(document.getElementById('profile-position'), Number(item.department_id || session.department_id || 1), item.position || '');
+      fillPositionSelect(document.getElementById('profile-position'), Number(item.department_id || session.department_id || 1), item.position || '', false);
       document.getElementById('profile-password').value = '';
       document.getElementById('profile-avatar').value = '';
       const preview = document.getElementById('profile-avatar-preview');
@@ -1253,6 +1353,12 @@
           pagination.reports.page = 1;
           try { await loadReports(); } catch (err) { alert(err.message); }
         }
+        if (targetView === 'messenger') {
+          try {
+            await loadDepartmentChat();
+            await loadTaskChat();
+          } catch (err) { alert(err.message); }
+        }
         if (targetView === 'close-report') {
           refreshCloseTargetSelect();
         }
@@ -1365,6 +1471,24 @@
     document.getElementById('clear-department-filter-btn')?.addEventListener('click', async () => {
       await applyDepartmentFilter(null, 'dashboard');
     });
+    document.getElementById('messenger-department-select')?.addEventListener('change', async () => {
+      await loadDepartmentChat();
+    });
+    document.getElementById('messenger-task-select')?.addEventListener('change', async () => {
+      await loadTaskChat();
+    });
+    document.getElementById('messenger-refresh-department-btn')?.addEventListener('click', async () => {
+      await loadDepartmentChat();
+    });
+    document.getElementById('messenger-refresh-task-btn')?.addEventListener('click', async () => {
+      await loadTaskChat();
+    });
+    document.getElementById('send-department-message-btn')?.addEventListener('click', async () => {
+      await sendDepartmentMessage();
+    });
+    document.getElementById('send-task-message-btn')?.addEventListener('click', async () => {
+      await sendTaskMessage();
+    });
     document.getElementById('project-department')?.addEventListener('change', refreshStaffSelectors);
     document.getElementById('task-project')?.addEventListener('change', refreshStaffSelectors);
     document.getElementById('add-project-curator-btn')?.addEventListener('click', () => addPickerRow('projectCurators', 'project-curators-wrap'));
@@ -1406,6 +1530,7 @@
       await loadProjects();
       await loadTasks();
       await loadReports();
+      fillMessengerSelectors();
       refreshCloseTargetSelect();
       resetProjectEditor();
       resetTaskEditor();

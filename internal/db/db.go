@@ -123,6 +123,17 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(author_user_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scope_type TEXT NOT NULL,
+  scope_id INTEGER NOT NULL,
+  author_user_id INTEGER NOT NULL,
+  body TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(author_user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_chat_scope_created ON chat_messages(scope_type, scope_id, id);
 `
 
 	if _, err := db.Exec(schema); err != nil {

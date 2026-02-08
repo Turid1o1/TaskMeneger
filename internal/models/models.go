@@ -153,3 +153,13 @@ type Department struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
 }
+
+type ChatMessage struct {
+	ID         int64  `json:"id"`
+	ScopeType  string `json:"scope_type"`
+	ScopeID    int64  `json:"scope_id"`
+	AuthorID   int64  `json:"author_id"`
+	AuthorName string `json:"author_name"`
+	Body       string `json:"body"`
+	CreatedAt  string `json:"created_at"`
+}

@@ -932,6 +932,135 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) departmentMessages(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
+		return
+	}
+	departmentID, err := readOptionalInt64Query(r, "department_id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	targetDepartmentID := actor.DepartmentID
+	if departmentID != nil {
+		targetDepartmentID = *departmentID
+	}
+	if !isSuperRole(actor.Role) && targetDepartmentID != actor.DepartmentID {
+		writeError(w, http.StatusForbidden, "доступ только к чату своего отдела")
+		return
+	}
+	if targetDepartmentID <= 0 {
+		writeError(w, http.StatusBadRequest, "выберите отдел")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		items, err := s.repo.DepartmentMessages(r.Context(), targetDepartmentID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	case http.MethodPost:
+		var in struct {
+			DepartmentID int64  `json:"department_id"`
+			Body         string `json:"body"`
+		}
+		if err := decodeJSON(r, &in); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if strings.TrimSpace(in.Body) == "" {
+			writeError(w, http.StatusBadRequest, "текст сообщения пуст")
+			return
+		}
+		if in.DepartmentID > 0 {
+			targetDepartmentID = in.DepartmentID
+		}
+		if !isSuperRole(actor.Role) && targetDepartmentID != actor.DepartmentID {
+			writeError(w, http.StatusForbidden, "доступ только к чату своего отдела")
+			return
+		}
+		if err := s.repo.CreateDepartmentMessage(r.Context(), targetDepartmentID, actor.ID, in.Body); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"message": "сообщение отправлено"})
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (s *Server) taskMessages(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
+		return
+	}
+	taskID, err := readOptionalInt64Query(r, "task_id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if taskID == nil || *taskID <= 0 {
+		writeError(w, http.StatusBadRequest, "нужен task_id")
+		return
+	}
+	departmentID, err := s.repo.TaskDepartmentID(r.Context(), *taskID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !isSuperRole(actor.Role) && departmentID != actor.DepartmentID {
+		writeError(w, http.StatusForbidden, "доступ только к задачам своего отдела")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		items, err := s.repo.TaskMessages(r.Context(), *taskID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	case http.MethodPost:
+		var in struct {
+			TaskID int64  `json:"task_id"`
+			Body   string `json:"body"`
+		}
+		if err := decodeJSON(r, &in); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		targetTaskID := *taskID
+		if in.TaskID > 0 {
+			targetTaskID = in.TaskID
+		}
+		if strings.TrimSpace(in.Body) == "" {
+			writeError(w, http.StatusBadRequest, "текст сообщения пуст")
+			return
+		}
+		targetDepartmentID, err := s.repo.TaskDepartmentID(r.Context(), targetTaskID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if !isSuperRole(actor.Role) && targetDepartmentID != actor.DepartmentID {
+			writeError(w, http.StatusForbidden, "доступ только к задачам своего отдела")
+			return
+		}
+		if err := s.repo.CreateTaskMessage(r.Context(), targetTaskID, actor.ID, in.Body); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"message": "сообщение отправлено"})
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
 func (s *Server) reportFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")

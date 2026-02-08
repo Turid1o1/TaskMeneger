@@ -47,6 +47,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/tasks/", s.taskEntity)
 	s.mux.HandleFunc("/api/v1/reports", s.reports)
 	s.mux.HandleFunc("/api/v1/reports/", s.reportFile)
+	s.mux.HandleFunc("/api/v1/messages/department", s.departmentMessages)
+	s.mux.HandleFunc("/api/v1/messages/task", s.taskMessages)
 
 	fs := http.FileServer(http.Dir(s.staticPath))
 	s.mux.Handle("/", fs)
