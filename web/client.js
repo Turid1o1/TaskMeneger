@@ -109,6 +109,17 @@
     return (task.assignees || []).map(a => a.full_name).join(', ') || '—';
   }
 
+  function priorityMeta(priority) {
+    const p = String(priority || '').toLowerCase();
+    if (p.includes('high') || p.includes('critical') || p.includes('выс')) {
+      return { cls: 'prio-high', label: 'Высокий' };
+    }
+    if (p.includes('medium') || p.includes('сред')) {
+      return { cls: 'prio-medium', label: 'Средний' };
+    }
+    return { cls: 'prio-low', label: 'Низкий' };
+  }
+
   function toIsoDate(v) {
     return v || null;
   }
@@ -264,9 +275,14 @@
       done.innerHTML = '';
 
       tasks.forEach(t => {
+        const meta = priorityMeta(t.priority);
         const chip = document.createElement('div');
         chip.className = 'task-chip';
-        chip.innerHTML = `<strong>${t.title}</strong><p>${t.key} · ${t.priority}</p>`;
+        chip.innerHTML = `<strong>${t.title}</strong>
+          <div class="task-chip-row">
+            <p>${t.key}</p>
+            <span class="prio-badge ${meta.cls}">${meta.label}</span>
+          </div>`;
 
         const status = (t.status || '').toLowerCase();
         if (status.includes('done')) done.appendChild(chip);

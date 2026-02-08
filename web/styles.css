@@ -11,12 +11,14 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(--bg); color: var(--ink); }
+html, body { height: 100%; }
+body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(--bg); color: var(--ink); overflow: hidden; }
 
 /* login/register */
-.login-page { min-height: 100vh; display: grid; place-items: center; padding: 18px; background: #dbe0e8; }
+.login-page { min-height: 100vh; display: grid; place-items: center; padding: 18px; background: #dbe0e8; overflow: hidden; }
 .login-shell {
   width: min(1450px, 100%);
+  height: calc(100vh - 36px);
   background: #b5b5b8;
   border: 2px solid #2493f8;
   border-radius: 24px;
@@ -28,8 +30,8 @@ body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(-
 .login-visual img { width: 100%; height: 100%; object-fit: cover; border-radius: 18px; border: 2px solid #1d9bf0; }
 .login-panel { display: grid; place-items: center; }
 .auth-card { width: min(560px, 100%); background: #d6d6d8; border-radius: 20px; padding: 20px; }
-.auth-card h1 { margin: 0; color: #2d2bd8; font-size: 46px; line-height: 1.05; text-transform: uppercase; }
-.auth-sub { margin: 10px 0 16px; color: #66758d; font-size: 20px; }
+.auth-card h1 { margin: 0; color: #2d2bd8; font-size: clamp(28px, 3.2vw, 44px); line-height: 1.08; text-transform: uppercase; }
+.auth-sub { margin: 10px 0 16px; color: #66758d; font-size: 16px; }
 .auth-input { width: 100%; margin-bottom: 8px; border: 0; border-radius: 10px; padding: 10px 12px; font-size: 16px; background: #f8fafc; }
 .auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .auth-btn {
@@ -50,7 +52,7 @@ body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(-
 /* app */
 .shell {
   width: min(1450px, 100%);
-  min-height: calc(100vh - 26px);
+  height: calc(100vh - 26px);
   margin: 13px auto;
   border-radius: 20px;
   background: var(--panel);
@@ -68,13 +70,14 @@ body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(-
   flex-direction: column;
   gap: 6px;
 }
-.brand { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+.brand { font-size: 24px; font-weight: 700; margin-bottom: 8px; text-align: center; }
 .menu-link {
   text-decoration: none;
   color: #bfd0f0;
   padding: 10px 12px;
   border-radius: 10px;
   font-size: 15px;
+  text-align: center;
 }
 .menu-link:hover, .menu-link.active { background: var(--nav-hover); color: #fff; }
 .nav-user { margin-top: auto; font-size: 13px; color: #9bb3dc; }
@@ -113,6 +116,29 @@ h1 { margin: 0; font-size: 24px; }
 .task-chip { background: #fff; border-radius: 10px; padding: 8px; margin-bottom: 8px; }
 .task-chip strong { font-size: 14px; }
 .task-chip p { margin: 5px 0 0; color: #64748b; font-size: 12px; }
+.task-chip-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; }
+.prio-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+.prio-badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+.prio-high { background: #fee2e2; color: #991b1b; }
+.prio-high::before { background: #dc2626; }
+.prio-medium { background: #fef3c7; color: #92400e; }
+.prio-medium::before { background: #f59e0b; }
+.prio-low { background: #dcfce7; color: #166534; }
+.prio-low::before { background: #16a34a; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
@@ -143,4 +169,5 @@ textarea { min-height: 90px; }
   .login-shell { grid-template-columns: 1fr; }
   .shell { grid-template-columns: 1fr; }
   .kanban-grid, .grid-2, .grid-3, .calendar-grid { grid-template-columns: 1fr; }
+  body { overflow: auto; }
 }
