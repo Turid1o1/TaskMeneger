@@ -25,7 +25,6 @@
         <div class="header-row">
           <div>
             <h1>Отделы</h1>
-            <div class="sub">Выберите отдел, чтобы открыть его проекты и задачи</div>
           </div>
           <div class="toolbar">
             <button class="btn primary" data-view="project-editor">+ Новый проект</button>
@@ -98,7 +97,7 @@
 
       <section class="view" id="view-calendar">
         <div class="header-row">
-          <div><h1>Календарь задач</h1><div class="sub">Выбор диапазона и режима отображения</div></div>
+          <div><h1>Календарь задач</h1></div>
           <div class="toolbar">
             <select id="calendar-mode">
               <option value="day">День</option>
@@ -113,7 +112,7 @@
       </section>
 
       <section class="view" id="view-projects">
-        <div class="header-row"><div><h1>Проекты</h1><div class="sub" id="projects-subtitle">Список проектов, редактирование и удаление</div></div><button class="btn primary" data-view="project-editor">+ Новый проект</button></div>
+        <div class="header-row"><div><h1>Проекты</h1></div><button class="btn primary" data-view="project-editor">+ Новый проект</button></div>
 
         <table class="table" id="projects-table">
           <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Статус</th><th>Кураторы</th><th>Исполнители</th><th>Действия</th></tr></thead>
@@ -145,7 +144,7 @@
       </section>
 
       <section class="view" id="view-tasks">
-        <div class="header-row"><div><h1>Задачи</h1><div class="sub" id="tasks-subtitle">Исполнитель и куратор обязательны в каждой задаче</div></div><button class="btn primary" data-view="task-editor">+ Новая задача</button></div>
+        <div class="header-row"><div><h1>Задачи</h1></div><button class="btn primary" data-view="task-editor">+ Новая задача</button></div>
         <table class="table" id="tasks-table">
           <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнители</th><th>Кураторы</th><th>Проект</th><th>Действия</th></tr></thead>
           <tbody></tbody>
@@ -176,7 +175,7 @@
       </section>
 
       <section class="view" id="view-reports">
-        <div class="header-row"><div><h1>Отчеты</h1><div class="sub">Исполнитель может закрыть задачу или проект через отчет</div></div></div>
+        <div class="header-row"><div><h1>Отчеты</h1></div></div>
         <div class="editor-box">
           <div class="grid-3">
             <div>
@@ -219,7 +218,7 @@
         </div>
 
         <table class="table" id="reports-table">
-          <thead><tr><th>ID</th><th>Тип</th><th>Объект</th><th>Автор</th><th>Заголовок</th><th>Файл</th><th>Дата</th></tr></thead>
+          <thead><tr><th>ID</th><th>Тип</th><th>Объект</th><th>Автор</th><th>Заголовок</th><th>Файл</th><th>Дата</th><th>Детали</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>

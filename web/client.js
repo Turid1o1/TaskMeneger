@@ -126,6 +126,15 @@
     return (users || []).map(u => u.full_name).join(', ') || '—';
   }
 
+  function escapeHTML(value) {
+    return String(value || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
   function priorityMeta(priority) {
     const p = String(priority || '').toLowerCase();
     if (p.includes('high') || p.includes('critical') || p.includes('выс')) {
@@ -513,12 +522,6 @@
       projects = data.items || [];
 
       fillSelect(document.getElementById('task-project'), projects, 'id', (p) => p.name, true);
-      const projectSub = document.getElementById('projects-subtitle');
-      if (projectSub) {
-        projectSub.textContent = selectedDepartmentID
-          ? `Проекты отдела: ${departmentLabel(selectedDepartmentID, departments)}`
-          : 'Список проектов, редактирование и удаление';
-      }
 
       const tbody = document.querySelector('#projects-table tbody');
       if (!tbody) return;
@@ -542,12 +545,6 @@
       const qs = selectedDepartmentID ? `?department_id=${selectedDepartmentID}` : '';
       const data = await api(`/api/v1/tasks${qs}`);
       tasks = data.items || [];
-      const taskSub = document.getElementById('tasks-subtitle');
-      if (taskSub) {
-        taskSub.textContent = selectedDepartmentID
-          ? `Задачи отдела: ${departmentLabel(selectedDepartmentID, departments)}`
-          : 'Исполнитель и куратор обязательны в каждой задаче';
-      }
 
       const tbody = document.querySelector('#tasks-table tbody');
       if (!tbody) return;
@@ -581,8 +578,22 @@
         const tr = document.createElement('tr');
         const fileCell = r.file_name ? `<a href="/api/v1/reports/${r.id}/file" target="_blank">${r.file_name}</a>` : '—';
         const kind = String(r.target_type).toLowerCase() === 'project' ? 'Проект' : 'Задача';
-        tr.innerHTML = `<td>${r.id}</td><td>${kind}</td><td>${r.target_label}</td><td>${r.author_name}</td><td>${r.title}</td><td>${fileCell}</td><td>${r.created_at}</td>`;
+        tr.innerHTML = `<td>${r.id}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.author_name)}</td><td>${escapeHTML(r.title)}</td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td><td><button class="btn toggle-report-btn" data-id="${r.id}">Подробнее</button></td>`;
         tbody.appendChild(tr);
+
+        const detailsTr = document.createElement('tr');
+        detailsTr.className = 'report-details-row hidden';
+        detailsTr.dataset.reportId = String(r.id);
+        detailsTr.innerHTML = `<td colspan="8">
+          <div class="report-details">
+            <div><strong>Объект:</strong> ${escapeHTML(r.target_label)}</div>
+            <div><strong>Автор:</strong> ${escapeHTML(r.author_name)}</div>
+            <div><strong>Дата:</strong> ${escapeHTML(r.created_at)}</div>
+            <div><strong>Решение:</strong></div>
+            <div class="report-resolution">${escapeHTML(r.resolution)}</div>
+          </div>
+        </td>`;
+        tbody.appendChild(detailsTr);
       });
     }
 
@@ -907,6 +918,16 @@
       const deleteUserBtn = e.target.closest('.delete-user-btn');
       if (deleteUserBtn) {
         try { await deleteUser(deleteUserBtn.dataset.id); } catch (err) { alert(err.message); }
+      }
+
+      const reportBtn = e.target.closest('.toggle-report-btn');
+      if (reportBtn) {
+        const reportID = reportBtn.dataset.id;
+        const row = document.querySelector(`.report-details-row[data-report-id="${reportID}"]`);
+        if (!row) return;
+        const isHidden = row.classList.contains('hidden');
+        row.classList.toggle('hidden', !isHidden);
+        reportBtn.textContent = isHidden ? 'Свернуть' : 'Подробнее';
       }
     });
 
