@@ -40,19 +40,20 @@ body {
   min-height: 100vh;
   padding: 0;
   background:
-    linear-gradient(90deg, rgba(8, 20, 38, 0.5) 0%, rgba(12, 31, 58, 0.28) 42%, rgba(29, 63, 110, 0.18) 100%),
+    radial-gradient(900px 540px at 76% 52%, rgba(140, 190, 255, 0.28) 0%, rgba(26, 63, 121, 0.18) 45%, rgba(10, 26, 51, 0) 100%),
+    linear-gradient(90deg, rgba(7, 19, 37, 0.54) 0%, rgba(10, 31, 58, 0.32) 45%, rgba(23, 62, 112, 0.2) 100%),
     url("/assets/login-hero.png") left center / auto 100% no-repeat,
-    radial-gradient(1200px 700px at 78% 45%, #1e4a8f 0%, #11294c 46%, #0a1a33 100%);
+    #0a1a33;
   overflow: hidden;
 }
 .login-shell {
   width: 100%;
   height: 100vh;
-  padding: clamp(var(--space-16), 2.2vw, 32px);
+  padding: clamp(16px, 2vw, 30px) clamp(18px, 2.8vw, 48px);
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  backdrop-filter: blur(5px);
+  position: relative;
 }
 .login-visual {
   display: none;
@@ -69,19 +70,23 @@ body {
 .login-panel {
   display: grid;
   place-items: center end;
-  width: min(620px, 42vw);
+  width: min(700px, 46vw);
   height: 100%;
 }
 .auth-card {
-  width: min(620px, 100%);
-  max-height: calc(100vh - 64px);
+  width: min(680px, 100%);
+  max-height: calc(100vh - 56px);
   overflow: hidden;
-  background: linear-gradient(180deg, rgba(242, 247, 255, 0.86), rgba(223, 236, 255, 0.74));
-  border: 1px solid rgba(220, 236, 255, 0.7);
-  border-radius: 26px;
-  padding: clamp(var(--space-16), 1.6vw, 24px);
-  box-shadow: 0 18px 52px rgba(7, 18, 40, 0.34), inset 0 1px 0 rgba(255,255,255,0.54);
-  backdrop-filter: blur(10px);
+  background:
+    linear-gradient(180deg, rgba(232, 241, 255, 0.32), rgba(212, 226, 248, 0.24));
+  border: 1.5px solid rgba(238, 247, 255, 0.66);
+  border-radius: 28px;
+  padding: clamp(18px, 1.8vw, 28px);
+  box-shadow:
+    0 16px 44px rgba(6, 17, 38, 0.36),
+    inset 0 0 0 1px rgba(255,255,255,0.2),
+    inset 0 24px 40px rgba(255,255,255,0.08);
+  backdrop-filter: blur(14px);
 }
 .register-page .auth-card { max-height: calc(100vh - 64px); }
 .register-page .auth-card label {
@@ -116,30 +121,46 @@ body {
   }
 }
 .auth-card h1 { margin: 0; color: #234096; font-size: clamp(32px, 2.4vw, 52px); line-height: 1.05; text-transform: uppercase; text-align: center; letter-spacing: 0.01em; }
-.auth-sub { margin: 8px 0 12px; color: #3d557c; font-size: 16px; text-align: center; line-height: 1.2; }
+.auth-sub { margin: 8px 0 12px; color: #314f84; font-size: 16px; text-align: center; line-height: 1.2; }
 .auth-card label {
   display: block;
-  font-size: 16px;
-  color: #2b4677;
+  font-size: 18px;
+  color: #28457c;
   font-weight: 600;
-  margin-bottom: var(--space-4);
+  margin-bottom: 6px;
 }
-.auth-input { width: 100%; margin-bottom: var(--space-8); border: 1px solid #d5e4f7; border-radius: 14px; padding: 10px var(--space-12); font-size: 16px; background: rgba(255,255,255,0.92); }
+.auth-input {
+  width: 100%;
+  margin-bottom: 10px;
+  border: 1px solid rgba(236, 244, 255, 0.65);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(245, 251, 255, 0.8));
+  color: #1f3357;
+}
 .auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); margin-top: var(--space-8); }
 .auth-btn {
   border: 0;
   text-decoration: none;
   text-align: center;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 18px;
   font-weight: 700;
-  padding: 10px;
-  background: var(--blue);
+  padding: 10px 18px;
+  background: linear-gradient(180deg, #3f70e9 0%, #2b57ca 100%);
+  border: 1px solid rgba(53, 99, 220, 0.8);
   color: #fff;
   cursor: pointer;
+  box-shadow: 0 8px 20px rgba(28, 66, 152, 0.38);
 }
-.auth-btn.secondary { background: #f8fafc; color: #334155; }
-.auth-footer { margin-top: var(--space-12); text-align: center; color: #1d4ed8; font-weight: 700; font-size: 18px; }
+.auth-btn.secondary {
+  background: linear-gradient(180deg, rgba(244, 249, 255, 0.95) 0%, rgba(229, 238, 248, 0.9) 100%);
+  border: 1px solid rgba(206, 220, 240, 0.9);
+  color: #32486f;
+  box-shadow: none;
+}
+.auth-footer { margin-top: 10px; text-align: center; color: #1d4ed8; font-weight: 700; font-size: 14px; min-height: 18px; }
 .auth-buttons-center { justify-content: center; }
 
 /* app */
@@ -493,9 +514,12 @@ textarea { min-height: 90px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-32);
+  gap: var(--space-24);
   margin-top: auto;
-  padding: var(--space-12) 0 var(--space-8);
+  padding: 12px 0 10px;
+  border-top: 1px solid rgba(120, 140, 175, 0.2);
+  background: linear-gradient(180deg, rgba(206, 215, 229, 0.35), rgba(206, 215, 229, 0.7));
+  border-radius: 14px;
 }
 #view-calendar.active {
   display: flex;
@@ -516,14 +540,17 @@ textarea { min-height: 90px; }
 }
 
 @media (max-width: 1400px) {
-  .login-panel { width: min(600px, 46vw); }
+  .login-panel { width: min(600px, 48vw); }
+  .auth-card h1 { font-size: clamp(30px, 2.8vw, 44px); }
+  .auth-card label { font-size: 16px; }
+  .auth-input { font-size: 16px; padding: 10px 12px; }
 }
 
 @media (max-width: 1180px) {
   .shell { grid-template-columns: 210px 1fr; width: calc(100vw - 12px); height: calc(100vh - 12px); margin: 6px auto; }
   .kanban-grid { grid-template-columns: 1fr; }
   .grid-3 { grid-template-columns: 1fr 1fr; }
-  .login-panel { width: min(560px, 52vw); }
+  .login-panel { width: min(560px, 54vw); }
   .auth-card h1 { font-size: clamp(28px, 3.8vw, 42px); }
   .auth-sub { font-size: clamp(15px, 1.8vw, 22px); }
 }
