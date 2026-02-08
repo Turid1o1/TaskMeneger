@@ -114,13 +114,15 @@
         </div>
       </section>
 
-      <section class="view" id="view-projects">
+      <section class="view table-view" id="view-projects">
         <div class="header-row"><div><h1>Проекты</h1></div><div class="toolbar"><button class="btn btn-md btn-primary" data-view="project-editor">+ Новый проект</button><button class="btn btn-md btn-secondary" data-view="dashboard">Назад</button></div></div>
 
-        <table class="table" id="projects-table">
-          <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Статус</th><th>Кураторы</th><th>Исполнители</th><th>Действия</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="table" id="projects-table">
+            <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Статус</th><th>Кураторы</th><th>Исполнители</th><th>Действия</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
         <div class="table-pager">
           <button class="icon-nav-btn" id="projects-prev-btn" title="Назад" aria-label="Назад">&#8592;</button>
           <div class="pager-label" id="projects-page-label">Страница 1</div>
@@ -151,12 +153,14 @@
         </div>
       </section>
 
-      <section class="view" id="view-tasks">
+      <section class="view table-view" id="view-tasks">
         <div class="header-row"><div><h1>Задачи</h1></div><div class="toolbar"><button class="btn btn-md btn-primary" data-view="task-editor">+ Новая задача</button><button class="btn btn-md btn-secondary" data-view="dashboard">Назад</button></div></div>
-        <table class="table" id="tasks-table">
-          <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнители</th><th>Кураторы</th><th>Проект</th><th>Действия</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="table" id="tasks-table">
+            <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнители</th><th>Кураторы</th><th>Проект</th><th>Действия</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
         <div class="table-pager">
           <button class="icon-nav-btn" id="tasks-prev-btn" title="Назад" aria-label="Назад">&#8592;</button>
           <div class="pager-label" id="tasks-page-label">Страница 1</div>
@@ -165,7 +169,7 @@
       </section>
 
       <section class="view" id="view-task-editor">
-        <div class="header-row"><div><h1 id="task-editor-title">Создать задачу</h1><div class="sub">Редактирование и удаление поддерживаются</div></div></div>
+        <div class="header-row"><div><h1 id="task-editor-title">Создать задачу</h1><div class="sub">Редактирование и удаление поддерживаются</div></div><button class="btn btn-md btn-secondary" data-view="tasks">Назад</button></div>
 
         <div class="editor-box">
           <div class="grid-3">
@@ -187,13 +191,15 @@
         </div>
       </section>
 
-      <section class="view" id="view-reports">
+      <section class="view table-view" id="view-reports">
         <div class="header-row"><div><h1>Отчеты</h1></div><button class="btn btn-md btn-secondary" data-view="dashboard">Назад</button></div>
 
-        <table class="table" id="reports-table">
-          <thead><tr><th>ID</th><th>Тип</th><th>Объект</th><th>Результат</th><th>Автор</th><th>Заголовок</th><th>Файл</th><th>Дата</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="table" id="reports-table">
+            <thead><tr><th>ID</th><th>Тип</th><th>Объект</th><th>Результат</th><th>Автор</th><th>Заголовок</th><th>Файл</th><th>Дата</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
         <div class="table-pager">
           <button class="icon-nav-btn" id="reports-prev-btn" title="Назад" aria-label="Назад">&#8592;</button>
           <div class="pager-label" id="reports-page-label">Страница 1</div>
