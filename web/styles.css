@@ -380,8 +380,28 @@ input, select, textarea {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 input:focus, select:focus, textarea:focus { outline: none; border-color: #8fb0ff; box-shadow: 0 0 0 3px rgba(47, 99, 221, 0.12); }
-select[multiple] { min-height: 92px; }
 textarea { min-height: 90px; }
+.picker-wrap {
+  display: grid;
+  gap: var(--space-8);
+}
+.picker-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-8);
+  align-items: center;
+}
+.picker-select {
+  width: 100%;
+}
+.picker-add-btn {
+  margin-top: var(--space-8);
+}
+.picker-remove-btn {
+  min-width: 34px;
+  padding-left: var(--space-8);
+  padding-right: var(--space-8);
+}
 
 .table {
   width: 100%; border-collapse: separate; border-spacing: 0; margin-top: var(--space-12);

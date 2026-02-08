@@ -136,23 +136,26 @@
       </section>
 
       <section class="view" id="view-project-editor">
-        <div class="header-row"><div><h1 id="project-editor-title">Создать проект</h1><div class="sub">Кураторы и исполнители: от 1 до 5</div></div><button class="btn btn-md btn-secondary" data-view="projects">Назад к проектам</button></div>
+        <div class="header-row"><div><h1 id="project-editor-title">Создать проект</h1></div><button class="btn btn-md btn-secondary" data-view="projects">Назад к проектам</button></div>
         <div class="editor-box">
           <div class="grid-3">
             <div><label>Название</label><input id="project-name" placeholder="Название проекта"></div>
             <div><label>Отдел</label><select id="project-department"></select></div>
             <div>
-              <label>Кураторы (1–5)</label>
-              <select id="project-curators" multiple></select>
+              <label>Кураторы</label>
+              <div id="project-curators-wrap" class="picker-wrap"></div>
+              <button class="btn btn-sm btn-secondary picker-add-btn" id="add-project-curator-btn" type="button">+ Добавить куратора</button>
             </div>
             <div>
-              <label>Исполнители (1–5)</label>
-              <select id="project-assignees" multiple></select>
+              <label>Исполнители</label>
+              <div id="project-assignees-wrap" class="picker-wrap"></div>
+              <button class="btn btn-sm btn-secondary picker-add-btn" id="add-project-assignee-btn" type="button">+ Добавить исполнителя</button>
             </div>
           </div>
           <div class="row-actions">
             <button class="btn btn-md btn-primary" id="save-project-btn">Сохранить</button>
             <button class="btn btn-md btn-secondary" id="reset-project-btn">Очистить</button>
+            <button class="btn btn-md btn-secondary hidden" id="delete-project-editor-btn">Удалить проект</button>
             <span class="sub" id="project-editor-message"></span>
           </div>
         </div>
@@ -174,7 +177,7 @@
       </section>
 
       <section class="view" id="view-task-editor">
-        <div class="header-row"><div><h1 id="task-editor-title">Создать задачу</h1><div class="sub">Редактирование и удаление поддерживаются</div></div><button class="btn btn-md btn-secondary" data-view="tasks">Назад</button></div>
+        <div class="header-row"><div><h1 id="task-editor-title">Создать задачу</h1></div><button class="btn btn-md btn-secondary" data-view="tasks">Назад</button></div>
 
         <div class="editor-box">
           <div class="grid-3">
@@ -183,14 +186,23 @@
             <div><label>Тип</label><select id="task-type"><option value="Task">Задача</option><option value="Bug">Ошибка</option><option value="Story">История</option><option value="Epic">Эпик</option></select></div>
             <div><label>Статус</label><select id="task-status"><option value="To Do">К выполнению</option><option value="In Progress">В процессе</option><option value="Review">Проверка</option><option value="Done">Завершено</option></select></div>
             <div><label>Приоритет</label><select id="task-priority"><option value="Low">Низкий</option><option value="Medium">Средний</option><option value="High">Высокий</option><option value="Critical">Критический</option></select></div>
-            <div><label>Кураторы (1–5)</label><select id="task-curators" multiple></select></div>
-            <div><label>Исполнители (1–5)</label><select id="task-assignees" multiple></select></div>
+            <div>
+              <label>Кураторы</label>
+              <div id="task-curators-wrap" class="picker-wrap"></div>
+              <button class="btn btn-sm btn-secondary picker-add-btn" id="add-task-curator-btn" type="button">+ Добавить куратора</button>
+            </div>
+            <div>
+              <label>Исполнители</label>
+              <div id="task-assignees-wrap" class="picker-wrap"></div>
+              <button class="btn btn-sm btn-secondary picker-add-btn" id="add-task-assignee-btn" type="button">+ Добавить исполнителя</button>
+            </div>
             <div><label>Срок</label><input id="task-due-date" type="date"></div>
           </div>
           <div><label>Описание</label><textarea id="task-description" placeholder="Описание"></textarea></div>
           <div class="row-actions">
             <button class="btn btn-md btn-primary" id="save-task-btn">Сохранить</button>
             <button class="btn btn-md btn-secondary" id="reset-task-btn">Очистить</button>
+            <button class="btn btn-md btn-secondary hidden" id="delete-task-editor-btn">Удалить задачу</button>
             <span class="sub" id="task-editor-message"></span>
           </div>
         </div>
@@ -287,7 +299,7 @@
       </section>
 
       <section class="view" id="view-profile">
-        <div class="header-row"><div><h1>Профиль сотрудника</h1><div class="sub">Изменение ФИО, должности и пароля</div></div><button class="btn btn-md btn-secondary" data-view="dashboard">Назад</button></div>
+        <div class="header-row"><div><h1>Профиль сотрудника</h1></div><button class="btn btn-md btn-secondary" data-view="dashboard">Назад</button></div>
         <div class="editor-box">
           <div class="grid-3">
             <div><label>Логин</label><input id="profile-login" disabled></div>

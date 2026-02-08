@@ -388,21 +388,91 @@
       });
     }
 
-    function bindMultiLimit(elementID, limit) {
-      const el = document.getElementById(elementID);
-      if (!el) return;
-      el.addEventListener('change', () => {
-        const selected = Array.from(el.selectedOptions);
-        if (selected.length <= limit) return;
-        selected[selected.length - 1].selected = false;
-        alert(`Можно выбрать максимум ${limit}`);
+    const pickerOptions = {
+      projectCurators: [],
+      projectAssignees: [],
+      taskCurators: [],
+      taskAssignees: []
+    };
+    const pickerValues = {
+      projectCurators: [0],
+      projectAssignees: [0],
+      taskCurators: [0],
+      taskAssignees: [0]
+    };
+
+    function normalizePickerValues(key) {
+      const options = pickerOptions[key] || [];
+      const allowed = new Set(options.map((u) => Number(u.id)));
+      const cleaned = (pickerValues[key] || [])
+        .map((v) => Number(v))
+        .filter((v) => v > 0 && allowed.has(v));
+      pickerValues[key] = cleaned.length ? cleaned.slice(0, 5) : [0];
+    }
+
+    function renderPickerRows(key, wrapID) {
+      const wrap = document.getElementById(wrapID);
+      if (!wrap) return;
+      normalizePickerValues(key);
+      const rows = pickerValues[key];
+      const options = pickerOptions[key] || [];
+      wrap.innerHTML = '';
+      rows.forEach((value, idx) => {
+        const row = document.createElement('div');
+        row.className = 'picker-row';
+        const select = document.createElement('select');
+        select.className = 'picker-select';
+        const empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = 'Выберите сотрудника';
+        select.appendChild(empty);
+        options.forEach((u) => {
+          const opt = document.createElement('option');
+          opt.value = String(u.id);
+          opt.textContent = `${u.full_name} (${u.position})`;
+          select.appendChild(opt);
+        });
+        select.value = value > 0 ? String(value) : '';
+        select.addEventListener('change', () => {
+          rows[idx] = Number(select.value || 0);
+        });
+        row.appendChild(select);
+        if (rows.length > 1) {
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'btn btn-sm btn-secondary picker-remove-btn';
+          removeBtn.textContent = '−';
+          removeBtn.addEventListener('click', () => {
+            rows.splice(idx, 1);
+            if (!rows.length) rows.push(0);
+            renderPickerRows(key, wrapID);
+          });
+          row.appendChild(removeBtn);
+        }
+        wrap.appendChild(row);
       });
     }
 
-    function selectedIDs(elementID) {
-      const el = document.getElementById(elementID);
-      if (!el) return [];
-      return Array.from(el.selectedOptions).map(o => Number(o.value)).filter(Boolean);
+    function addPickerRow(key, wrapID) {
+      const rows = pickerValues[key];
+      if (rows.length >= 5) {
+        alert('Можно выбрать максимум 5 сотрудников');
+        return;
+      }
+      rows.push(0);
+      renderPickerRows(key, wrapID);
+    }
+
+    function selectedPickerIDs(key) {
+      const seen = new Set();
+      const result = [];
+      (pickerValues[key] || []).forEach((v) => {
+        const id = Number(v);
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        result.push(id);
+      });
+      return result;
     }
 
     function filteredUsersByDepartmentID(departmentID) {
@@ -451,8 +521,11 @@
       document.getElementById('project-editor-title').textContent = 'Создать проект';
       document.getElementById('project-name').value = '';
       document.getElementById('project-department').value = selectedDepartmentID ? String(selectedDepartmentID) : '';
-      Array.from(document.getElementById('project-curators').options).forEach(o => (o.selected = false));
-      Array.from(document.getElementById('project-assignees').options).forEach(o => (o.selected = false));
+      pickerValues.projectCurators = [0];
+      pickerValues.projectAssignees = [0];
+      renderPickerRows('projectCurators', 'project-curators-wrap');
+      renderPickerRows('projectAssignees', 'project-assignees-wrap');
+      document.getElementById('delete-project-editor-btn')?.classList.add('hidden');
       document.getElementById('project-editor-message').textContent = '';
     }
 
@@ -466,8 +539,11 @@
       document.getElementById('task-priority').value = 'Low';
       document.getElementById('task-due-date').value = '';
       document.getElementById('task-description').value = '';
-      Array.from(document.getElementById('task-curators').options).forEach(o => (o.selected = false));
-      Array.from(document.getElementById('task-assignees').options).forEach(o => (o.selected = false));
+      pickerValues.taskCurators = [0];
+      pickerValues.taskAssignees = [0];
+      renderPickerRows('taskCurators', 'task-curators-wrap');
+      renderPickerRows('taskAssignees', 'task-assignees-wrap');
+      document.getElementById('delete-task-editor-btn')?.classList.add('hidden');
       document.getElementById('task-editor-message').textContent = '';
     }
 
@@ -689,12 +765,14 @@
     function refreshStaffSelectors() {
       const projectDeptID = selectedProjectDepartmentID();
       const taskDeptID = selectedTaskDepartmentID();
-      const projectUsers = filteredUsersByDepartmentID(projectDeptID);
-      const taskUsers = filteredUsersByDepartmentID(taskDeptID);
-      fillSelect(document.getElementById('project-curators'), projectUsers, 'id', (u) => `${u.full_name} (${u.position})`, false);
-      fillSelect(document.getElementById('project-assignees'), projectUsers, 'id', (u) => `${u.full_name} (${u.position})`, false);
-      fillSelect(document.getElementById('task-curators'), taskUsers, 'id', (u) => `${u.full_name} (${u.position})`, false);
-      fillSelect(document.getElementById('task-assignees'), taskUsers, 'id', (u) => `${u.full_name} (${u.position})`, false);
+      pickerOptions.projectCurators = filteredUsersByDepartmentID(projectDeptID);
+      pickerOptions.projectAssignees = filteredUsersByDepartmentID(projectDeptID);
+      pickerOptions.taskCurators = filteredUsersByDepartmentID(taskDeptID);
+      pickerOptions.taskAssignees = filteredUsersByDepartmentID(taskDeptID);
+      renderPickerRows('projectCurators', 'project-curators-wrap');
+      renderPickerRows('projectAssignees', 'project-assignees-wrap');
+      renderPickerRows('taskCurators', 'task-curators-wrap');
+      renderPickerRows('taskAssignees', 'task-assignees-wrap');
     }
 
     async function loadUsers() {
@@ -829,14 +907,13 @@
       document.getElementById('project-name').value = item.name;
       document.getElementById('project-department').value = String(item.department_id || selectedDepartmentID || '');
       refreshStaffSelectors();
-      const projectCurators = new Set((item.curators || []).map(u => Number(u.id)));
-      const projectAssignees = new Set((item.assignees || []).map(u => Number(u.id)));
-      Array.from(document.getElementById('project-curators').options).forEach(o => {
-        o.selected = projectCurators.has(Number(o.value));
-      });
-      Array.from(document.getElementById('project-assignees').options).forEach(o => {
-        o.selected = projectAssignees.has(Number(o.value));
-      });
+      pickerValues.projectCurators = (item.curators || []).map((u) => Number(u.id)).filter(Boolean);
+      pickerValues.projectAssignees = (item.assignees || []).map((u) => Number(u.id)).filter(Boolean);
+      if (!pickerValues.projectCurators.length) pickerValues.projectCurators = [0];
+      if (!pickerValues.projectAssignees.length) pickerValues.projectAssignees = [0];
+      renderPickerRows('projectCurators', 'project-curators-wrap');
+      renderPickerRows('projectAssignees', 'project-assignees-wrap');
+      document.getElementById('delete-project-editor-btn')?.classList.remove('hidden');
       setView('project-editor');
     }
 
@@ -853,14 +930,13 @@
       document.getElementById('task-due-date').value = item.due_date || '';
       document.getElementById('task-description').value = item.description || '';
       refreshStaffSelectors();
-      const curatorSelected = new Set((item.curators || []).map(c => Number(c.id)));
-      Array.from(document.getElementById('task-curators').options).forEach(o => {
-        o.selected = curatorSelected.has(Number(o.value));
-      });
-      const selected = new Set((item.assignees || []).map(a => Number(a.id)));
-      Array.from(document.getElementById('task-assignees').options).forEach(o => {
-        o.selected = selected.has(Number(o.value));
-      });
+      pickerValues.taskCurators = (item.curators || []).map((u) => Number(u.id)).filter(Boolean);
+      pickerValues.taskAssignees = (item.assignees || []).map((u) => Number(u.id)).filter(Boolean);
+      if (!pickerValues.taskCurators.length) pickerValues.taskCurators = [0];
+      if (!pickerValues.taskAssignees.length) pickerValues.taskAssignees = [0];
+      renderPickerRows('taskCurators', 'task-curators-wrap');
+      renderPickerRows('taskAssignees', 'task-assignees-wrap');
+      document.getElementById('delete-task-editor-btn')?.classList.remove('hidden');
       setView('task-editor');
     }
 
@@ -879,8 +955,8 @@
     }
 
     async function saveProject() {
-      const curatorIDs = selectedIDs('project-curators');
-      const assigneeIDs = selectedIDs('project-assignees');
+      const curatorIDs = selectedPickerIDs('projectCurators');
+      const assigneeIDs = selectedPickerIDs('projectAssignees');
       const payload = {
         key: '',
         name: document.getElementById('project-name').value.trim(),
@@ -908,8 +984,8 @@
     }
 
     async function saveTask() {
-      const assigneeIDs = Array.from(document.getElementById('task-assignees').selectedOptions).map(o => Number(o.value));
-      const curatorIDs = Array.from(document.getElementById('task-curators').selectedOptions).map(o => Number(o.value));
+      const assigneeIDs = selectedPickerIDs('taskAssignees');
+      const curatorIDs = selectedPickerIDs('taskCurators');
       const payload = {
         key: '',
         title: document.getElementById('task-title').value.trim(),
@@ -1107,6 +1183,20 @@
       await loadTasks();
     }
 
+    async function deleteProjectFromEditor() {
+      if (!editingProjectID) return;
+      await deleteProject(editingProjectID);
+      resetProjectEditor();
+      setView('projects');
+    }
+
+    async function deleteTaskFromEditor() {
+      if (!editingTaskID) return;
+      await deleteTask(editingTaskID);
+      resetTaskEditor();
+      setView('tasks');
+    }
+
     async function deleteUser(id) {
       if (!canManage) return;
       if (!confirm('Удалить пользователя?')) return;
@@ -1210,8 +1300,14 @@
 
     document.getElementById('save-project-btn')?.addEventListener('click', saveProject);
     document.getElementById('reset-project-btn')?.addEventListener('click', resetProjectEditor);
+    document.getElementById('delete-project-editor-btn')?.addEventListener('click', async () => {
+      try { await deleteProjectFromEditor(); } catch (e) { alert(e.message); }
+    });
     document.getElementById('save-task-btn')?.addEventListener('click', saveTask);
     document.getElementById('reset-task-btn')?.addEventListener('click', resetTaskEditor);
+    document.getElementById('delete-task-editor-btn')?.addEventListener('click', async () => {
+      try { await deleteTaskFromEditor(); } catch (e) { alert(e.message); }
+    });
     document.getElementById('save-user-btn')?.addEventListener('click', saveUser);
     document.getElementById('reset-user-btn')?.addEventListener('click', resetUserEditor);
     document.getElementById('save-settings-general-btn')?.addEventListener('click', saveGeneralSettings);
@@ -1256,6 +1352,10 @@
     });
     document.getElementById('project-department')?.addEventListener('change', refreshStaffSelectors);
     document.getElementById('task-project')?.addEventListener('change', refreshStaffSelectors);
+    document.getElementById('add-project-curator-btn')?.addEventListener('click', () => addPickerRow('projectCurators', 'project-curators-wrap'));
+    document.getElementById('add-project-assignee-btn')?.addEventListener('click', () => addPickerRow('projectAssignees', 'project-assignees-wrap'));
+    document.getElementById('add-task-curator-btn')?.addEventListener('click', () => addPickerRow('taskCurators', 'task-curators-wrap'));
+    document.getElementById('add-task-assignee-btn')?.addEventListener('click', () => addPickerRow('taskAssignees', 'task-assignees-wrap'));
     document.getElementById('user-department')?.addEventListener('change', () => {
       refreshUserPositionOptions('');
     });
@@ -1283,11 +1383,6 @@
       pagination.reports.page += 1;
       await loadReports();
     });
-    bindMultiLimit('project-curators', 5);
-    bindMultiLimit('project-assignees', 5);
-    bindMultiLimit('task-curators', 5);
-    bindMultiLimit('task-assignees', 5);
-
     try {
       await loadDepartments();
       if (canManage) {
