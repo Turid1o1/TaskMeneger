@@ -83,6 +83,7 @@ body {
   height: 100%;
   position: relative;
   z-index: 1;
+  margin-right: clamp(32px, 5vw, 96px);
 }
 .register-page .login-panel {
   width: min(680px, 44vw);
@@ -139,12 +140,12 @@ body {
     margin-top: 8px;
   }
 }
-.auth-card h1 { margin: 0; color: #234096; font-size: clamp(32px, 2.4vw, 52px); line-height: 1.05; text-transform: uppercase; text-align: center; letter-spacing: 0.01em; }
+.auth-card h1 { margin: 0; color: #2f63e2; font-size: clamp(32px, 2.4vw, 52px); line-height: 1.05; text-transform: uppercase; text-align: center; letter-spacing: 0.01em; }
 .auth-sub { margin: 8px 0 12px; color: #314f84; font-size: 16px; text-align: center; line-height: 1.2; }
 .auth-card label {
   display: block;
   font-size: 18px;
-  color: #1f3f76;
+  color: #2a56bf;
   font-weight: 600;
   margin-bottom: 6px;
   text-shadow: 0 1px 1px rgba(255,255,255,0.45);

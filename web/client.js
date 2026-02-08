@@ -387,7 +387,8 @@
     const closeReportDraft = {
       targetType: 'task',
       targetID: 0,
-      backView: 'tasks'
+      backView: 'tasks',
+      mode: 'close'
     };
     const settings = loadSettings();
 
@@ -966,6 +967,7 @@
           baseActions.push(`<button class="btn btn-sm btn-secondary edit-project-btn" data-id="${p.id}">Редактировать</button>`);
           baseActions.push(`<button class="btn btn-sm btn-secondary delete-project-btn" data-id="${p.id}">Удалить</button>`);
         }
+        baseActions.push(`<button class="btn btn-sm btn-secondary interim-project-report-btn" data-id="${p.id}">Промеж. отчет</button>`);
         baseActions.push(`<button class="btn btn-sm btn-success close-project-btn" data-id="${p.id}">Закрыть</button>`);
         tr.innerHTML = `<td title="ID ${p.id}">${displayID}</td><td title="${escapeHTML(p.name)}">${p.name}</td><td>${p.department_name || '—'}</td><td>${p.status || 'Активен'}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${baseActions.join(' ')}</td>`;
         tbody.appendChild(tr);
@@ -994,6 +996,7 @@
           baseActions.push(`<button class="btn btn-sm btn-secondary delete-task-btn" data-id="${t.id}">Удалить</button>`);
         }
         baseActions.push(`<button class="btn btn-sm btn-secondary open-task-chat-btn" data-id="${t.id}">Чат</button>`);
+        baseActions.push(`<button class="btn btn-sm btn-secondary interim-task-report-btn" data-id="${t.id}">Промеж. отчет</button>`);
         baseActions.push(`<button class="btn btn-sm btn-success close-task-btn" data-id="${t.id}">Закрыть</button>`);
         const normalizedStatus = String(t.status || '').toLowerCase();
         const statusCell = normalizedStatus.includes('done') || normalizedStatus.includes('заверш')
@@ -1266,20 +1269,38 @@
       }
     }
 
-    function openCloseReport(targetType, targetID) {
+    function configureCloseReportMode(mode) {
+      const titleEl = document.getElementById('close-report-title');
+      const resultEl = document.getElementById('close-result');
+      const saveBtn = document.getElementById('save-close-report-btn');
+      if (!titleEl || !resultEl || !saveBtn) return;
+      if (mode === 'interim') {
+        titleEl.textContent = 'Промежуточный отчет';
+        saveBtn.textContent = 'Отправить отчет';
+        resultEl.value = 'Промежуточный отчет';
+      } else {
+        titleEl.textContent = 'Закрытие с отчетом';
+        saveBtn.textContent = 'Сохранить отчет';
+        if (!resultEl.value) resultEl.value = 'Завершено';
+      }
+    }
+
+    function openCloseReport(targetType, targetID, mode = 'close') {
       closeReportDraft.targetType = targetType;
       closeReportDraft.targetID = Number(targetID);
       closeReportDraft.backView = targetType === 'project' ? 'projects' : 'tasks';
+      closeReportDraft.mode = mode;
       const typeEl = document.getElementById('close-target-type');
       if (typeEl) typeEl.value = targetType;
       refreshCloseTargetSelect();
       const targetEl = document.getElementById('close-target-id');
       if (targetEl && closeReportDraft.targetID > 0) targetEl.value = String(closeReportDraft.targetID);
-      document.getElementById('close-result').value = 'Завершено';
+      document.getElementById('close-result').value = mode === 'interim' ? 'Промежуточный отчет' : 'Завершено';
       document.getElementById('close-title').value = '';
       document.getElementById('close-resolution').value = '';
       document.getElementById('close-file').value = '';
       document.getElementById('close-report-message').textContent = '';
+      configureCloseReportMode(mode);
       setView('close-report');
     }
 
@@ -1291,7 +1312,7 @@
       const result = document.getElementById('close-result').value;
       const title = document.getElementById('close-title').value.trim();
       const resolution = document.getElementById('close-resolution').value.trim();
-      const closeItem = result === 'Завершено' ? 'true' : 'false';
+      const closeItem = closeReportDraft.mode === 'interim' ? 'false' : (result === 'Завершено' ? 'true' : 'false');
       const msg = document.getElementById('close-report-message');
 
       try {
@@ -1402,6 +1423,7 @@
         }
         if (targetView === 'close-report') {
           refreshCloseTargetSelect();
+          configureCloseReportMode(closeReportDraft.mode || 'close');
         }
       }
 
@@ -1443,10 +1465,18 @@
       if (closeTaskBtn) {
         openCloseReport('task', closeTaskBtn.dataset.id);
       }
+      const interimTaskReportBtn = e.target.closest('.interim-task-report-btn');
+      if (interimTaskReportBtn) {
+        openCloseReport('task', interimTaskReportBtn.dataset.id, 'interim');
+      }
 
       const closeProjectBtn = e.target.closest('.close-project-btn');
       if (closeProjectBtn) {
         openCloseReport('project', closeProjectBtn.dataset.id);
+      }
+      const interimProjectReportBtn = e.target.closest('.interim-project-report-btn');
+      if (interimProjectReportBtn) {
+        openCloseReport('project', interimProjectReportBtn.dataset.id, 'interim');
       }
 
       const deleteUserBtn = e.target.closest('.delete-user-btn');
