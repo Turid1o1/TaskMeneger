@@ -43,10 +43,57 @@
       <section class="view" id="view-settings">
         <div class="header-row"><div><h1>Настройки</h1><div class="sub">Настройки открываются отдельным экраном</div></div></div>
         <div class="grid-2">
-          <div class="info-box"><h3>Общие</h3><p>Язык, часовой пояс, формат даты</p></div>
-          <div class="info-box"><h3>Безопасность</h3><p>2FA, политика пароля, лимит попыток, сессия</p></div>
-          <div class="info-box"><h3>Уведомления</h3><p>Email, in-app, дайджест, просрочки</p></div>
-          <div class="info-box"><h3>Пользователи</h3><p>Создание, редактирование, удаление</p></div>
+          <button class="info-box settings-link" data-view="settings-general"><h3>Общие</h3><p>Язык, часовой пояс, формат даты</p></button>
+          <button class="info-box settings-link" data-view="settings-security"><h3>Безопасность</h3><p>2FA, политика пароля, лимит попыток, сессия</p></button>
+          <button class="info-box settings-link" data-view="settings-notify"><h3>Уведомления</h3><p>Email, in-app, дайджест, просрочки</p></button>
+          <button class="info-box settings-link" data-view="users"><h3>Пользователи</h3><p>Создание, редактирование, удаление</p></button>
+        </div>
+      </section>
+
+      <section class="view" id="view-settings-general">
+        <div class="header-row"><div><h1>Общие настройки</h1><div class="sub">Язык, часовой пояс, формат даты</div></div><button class="btn" data-view="settings">Назад</button></div>
+        <div class="editor-box">
+          <div class="grid-3">
+            <div><label>Язык</label><select id="settings-lang"><option value="ru">Русский</option><option value="en">English</option></select></div>
+            <div><label>Часовой пояс</label><select id="settings-timezone"><option value="Europe/Moscow">Europe/Moscow</option><option value="UTC">UTC</option></select></div>
+            <div><label>Формат даты</label><select id="settings-date-format"><option value="DD.MM.YYYY">DD.MM.YYYY</option><option value="YYYY-MM-DD">YYYY-MM-DD</option></select></div>
+          </div>
+          <div class="row-actions">
+            <button class="btn primary" id="save-settings-general-btn">Сохранить</button>
+            <span class="sub" id="settings-general-message"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-settings-security">
+        <div class="header-row"><div><h1>Безопасность</h1><div class="sub">2FA, политика пароля, лимит попыток, сессия</div></div><button class="btn" data-view="settings">Назад</button></div>
+        <div class="editor-box">
+          <div class="grid-3">
+            <div><label>2FA</label><select id="settings-2fa"><option value="off">Выключено</option><option value="on">Включено</option></select></div>
+            <div><label>Политика пароля</label><select id="settings-password-policy"><option value="standard">Стандартная</option><option value="strict">Строгая</option></select></div>
+            <div><label>Лимит попыток входа</label><input id="settings-login-attempts" type="number" min="1" max="20" value="5"></div>
+            <div><label>Время сессии (мин)</label><input id="settings-session-minutes" type="number" min="5" max="1440" value="60"></div>
+          </div>
+          <div class="row-actions">
+            <button class="btn primary" id="save-settings-security-btn">Сохранить</button>
+            <span class="sub" id="settings-security-message"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-settings-notify">
+        <div class="header-row"><div><h1>Уведомления</h1><div class="sub">Email, in-app, дайджест, просрочки</div></div><button class="btn" data-view="settings">Назад</button></div>
+        <div class="editor-box">
+          <div class="grid-3">
+            <div><label>Email</label><select id="settings-email"><option value="on">Включено</option><option value="off">Выключено</option></select></div>
+            <div><label>In-App</label><select id="settings-inapp"><option value="on">Включено</option><option value="off">Выключено</option></select></div>
+            <div><label>Дайджест</label><select id="settings-digest"><option value="daily">Ежедневно</option><option value="weekly">Еженедельно</option><option value="off">Выключено</option></select></div>
+            <div><label>Просрочки</label><select id="settings-overdue"><option value="on">Уведомлять</option><option value="off">Не уведомлять</option></select></div>
+          </div>
+          <div class="row-actions">
+            <button class="btn primary" id="save-settings-notify-btn">Сохранить</button>
+            <span class="sub" id="settings-notify-message"></span>
+          </div>
         </div>
       </section>
 

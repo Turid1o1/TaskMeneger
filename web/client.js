@@ -1,5 +1,6 @@
 (function () {
   const SESSION_KEY = 'taskflow_session';
+  const SETTINGS_KEY = 'taskflow_settings';
 
   function getSession() {
     const raw = localStorage.getItem(SESSION_KEY);
@@ -112,6 +113,33 @@
     return v || null;
   }
 
+  function defaultSettings() {
+    return {
+      general: { lang: 'ru', timezone: 'Europe/Moscow', dateFormat: 'DD.MM.YYYY' },
+      security: { twoFA: 'off', passwordPolicy: 'standard', loginAttempts: 5, sessionMinutes: 60 },
+      notify: { email: 'on', inapp: 'on', digest: 'daily', overdue: 'on' }
+    };
+  }
+
+  function loadSettings() {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return defaultSettings();
+    try {
+      const parsed = JSON.parse(raw);
+      return {
+        general: { ...defaultSettings().general, ...(parsed.general || {}) },
+        security: { ...defaultSettings().security, ...(parsed.security || {}) },
+        notify: { ...defaultSettings().notify, ...(parsed.notify || {}) }
+      };
+    } catch (_) {
+      return defaultSettings();
+    }
+  }
+
+  function saveSettings(settings) {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }
+
   async function initAppPage() {
     const root = document.getElementById('app-root');
     if (!root) return;
@@ -131,6 +159,7 @@
     let editingProjectID = null;
     let editingTaskID = null;
     let editingUserID = null;
+    const settings = loadSettings();
 
     function resetProjectEditor() {
       editingProjectID = null;
@@ -165,6 +194,63 @@
       document.getElementById('user-position').value = '';
       document.getElementById('user-role').value = 'Member';
       document.getElementById('user-editor-message').textContent = '';
+    }
+
+    function hydrateSettingsForms() {
+      const g = settings.general;
+      const s = settings.security;
+      const n = settings.notify;
+
+      const setVal = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = String(value);
+      };
+
+      setVal('settings-lang', g.lang);
+      setVal('settings-timezone', g.timezone);
+      setVal('settings-date-format', g.dateFormat);
+
+      setVal('settings-2fa', s.twoFA);
+      setVal('settings-password-policy', s.passwordPolicy);
+      setVal('settings-login-attempts', s.loginAttempts);
+      setVal('settings-session-minutes', s.sessionMinutes);
+
+      setVal('settings-email', n.email);
+      setVal('settings-inapp', n.inapp);
+      setVal('settings-digest', n.digest);
+      setVal('settings-overdue', n.overdue);
+    }
+
+    function saveGeneralSettings() {
+      settings.general = {
+        lang: document.getElementById('settings-lang').value,
+        timezone: document.getElementById('settings-timezone').value,
+        dateFormat: document.getElementById('settings-date-format').value
+      };
+      saveSettings(settings);
+      document.getElementById('settings-general-message').textContent = 'Сохранено';
+    }
+
+    function saveSecuritySettings() {
+      settings.security = {
+        twoFA: document.getElementById('settings-2fa').value,
+        passwordPolicy: document.getElementById('settings-password-policy').value,
+        loginAttempts: Number(document.getElementById('settings-login-attempts').value || 5),
+        sessionMinutes: Number(document.getElementById('settings-session-minutes').value || 60)
+      };
+      saveSettings(settings);
+      document.getElementById('settings-security-message').textContent = 'Сохранено';
+    }
+
+    function saveNotifySettings() {
+      settings.notify = {
+        email: document.getElementById('settings-email').value,
+        inapp: document.getElementById('settings-inapp').value,
+        digest: document.getElementById('settings-digest').value,
+        overdue: document.getElementById('settings-overdue').value
+      };
+      saveSettings(settings);
+      document.getElementById('settings-notify-message').textContent = 'Сохранено';
     }
 
     function renderDashboard() {
@@ -455,6 +541,9 @@
     document.getElementById('reset-task-btn')?.addEventListener('click', resetTaskEditor);
     document.getElementById('save-user-btn')?.addEventListener('click', saveUser);
     document.getElementById('reset-user-btn')?.addEventListener('click', resetUserEditor);
+    document.getElementById('save-settings-general-btn')?.addEventListener('click', saveGeneralSettings);
+    document.getElementById('save-settings-security-btn')?.addEventListener('click', saveSecuritySettings);
+    document.getElementById('save-settings-notify-btn')?.addEventListener('click', saveNotifySettings);
 
     try {
       await loadUsers();
@@ -463,6 +552,7 @@
       resetProjectEditor();
       resetTaskEditor();
       resetUserEditor();
+      hydrateSettingsForms();
       setView('dashboard');
     } catch (e) {
       alert(`Ошибка загрузки: ${e.message}`);
