@@ -101,12 +101,65 @@ CREATE TABLE IF NOT EXISTS project_assignees (
   FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  target_type TEXT NOT NULL,
+  target_id INTEGER NOT NULL,
+  author_user_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  resolution TEXT NOT NULL,
+  file_name TEXT NOT NULL DEFAULT '',
+  file_path TEXT NOT NULL DEFAULT '',
+  file_size INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(author_user_id) REFERENCES users(id)
+);
 `
 
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
+	if err := addColumnIfMissing(db, "projects", "status", "TEXT NOT NULL DEFAULT 'Активен'"); err != nil {
+		return fmt.Errorf("add projects.status: %w", err)
+	}
+	if _, err := db.Exec(`UPDATE projects SET status = 'Активен' WHERE status IS NULL OR status = ''`); err != nil {
+		return fmt.Errorf("normalize projects.status: %w", err)
+	}
 	return nil
+}
+
+func addColumnIfMissing(db *sql.DB, table, column, columnDDL string) error {
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var found bool
+	for rows.Next() {
+		var cid int
+		var name string
+		var ctype string
+		var notnull int
+		var dflt sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == column {
+			found = true
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if found {
+		return nil
+	}
+	_, err = db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, columnDDL))
+	return err
 }
 
 func seed(db *sql.DB) error {

@@ -1,11 +1,11 @@
 :root {
-  --bg: #d9dde5;
-  --panel: #cfcfd1;
-  --soft: #f0f2f6;
+  --bg: #dde2ea;
+  --panel: #ccccce;
+  --soft: #f1f4f9;
   --ink: #111827;
   --muted: #64748b;
-  --nav: #071632;
-  --nav-hover: #1b2a45;
+  --nav: #031432;
+  --nav-hover: #1a2f4f;
   --blue: #2f63dd;
   --line: #e5e7eb;
 }
@@ -64,7 +64,7 @@ body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(-
   width: min(1450px, 100%);
   height: calc(100vh - 26px);
   margin: 13px auto;
-  border-radius: 20px;
+  border-radius: 22px;
   background: var(--panel);
   padding: 14px;
   display: grid;
@@ -78,21 +78,22 @@ body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(-
   color: #e7efff;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
 }
 .brand { font-size: 24px; font-weight: 700; margin-bottom: 8px; text-align: center; }
 .menu-link {
   text-decoration: none;
   color: #bfd0f0;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 15px;
   text-align: center;
 }
 .menu-link:hover, .menu-link.active { background: var(--nav-hover); color: #fff; }
 .nav-user { margin-top: auto; font-size: 13px; color: #9bb3dc; }
 
-.workspace { background: var(--panel); border-radius: 18px; padding: 8px; }
+.workspace { background: var(--panel); border-radius: 18px; padding: 10px; box-shadow: inset 0 0 0 1px rgba(17,24,39,0.04); }
 .view { display: none; }
 .view.active { display: block; height: 100%; overflow: auto; padding-right: 4px; }
 
@@ -100,10 +101,11 @@ h1 { margin: 0; font-size: 24px; }
 .sub { color: var(--muted); font-size: 14px; }
 .header-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
 .toolbar { display: flex; gap: 8px; }
+.toolbar input[type="date"], .toolbar select { width: auto; min-width: 130px; }
 
 .btn {
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 8px 12px;
   font-size: 14px;
   background: #e5e7eb;
@@ -114,18 +116,19 @@ h1 { margin: 0; font-size: 24px; }
 
 .card-col, .editor-box, .info-box {
   background: var(--soft);
-  border-radius: 12px;
-  padding: 12px;
+  border-radius: 14px;
+  padding: 14px;
 }
 .card-col h3, .info-box h3 { margin: 0 0 8px; font-size: 16px; }
 .info-box p { margin: 0; color: #475569; font-size: 13px; }
 .settings-link { border: none; text-align: left; cursor: pointer; }
 .settings-link:hover { outline: 2px solid #c5d4f8; }
 
-.kanban-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.task-chip { background: #fff; border-radius: 10px; padding: 8px; margin-bottom: 8px; }
-.task-chip strong { font-size: 14px; }
-.task-chip p { margin: 5px 0 0; color: #64748b; font-size: 12px; }
+.kanban-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+.card-col { min-height: 560px; }
+.task-chip { background: #f8fafc; border-radius: 12px; padding: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
+.task-chip strong { font-size: 16px; line-height: 1.2; }
+.task-chip p { margin: 6px 0 0; color: #64748b; font-size: 13px; }
 .task-chip-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; }
 .prio-badge {
   display: inline-flex;
@@ -170,11 +173,14 @@ textarea { min-height: 90px; }
   text-align: left;
   padding: 8px 10px;
   font-size: 13px;
+  vertical-align: top;
 }
+.table a { color: #1d4ed8; text-decoration: none; }
+.table a:hover { text-decoration: underline; }
 
 .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; }
-.day { min-height: 90px; background: var(--soft); border-radius: 10px; padding: 8px; font-size: 12px; }
-.day .evt { display: block; margin-top: 5px; background: #dbeafe; color: #1d4ed8; padding: 4px 6px; border-radius: 8px; font-size: 11px; }
+.day { min-height: 110px; background: var(--soft); border-radius: 10px; padding: 8px; font-size: 12px; border: 1px solid #e3e8f1; }
+.day .evt { display: block; margin-top: 5px; background: #dbeafe; color: #1d4ed8; padding: 4px 6px; border-radius: 8px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 1200px) {
   .login-shell { grid-template-columns: 1fr; }

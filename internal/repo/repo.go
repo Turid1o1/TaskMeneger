@@ -7,7 +7,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mvd/taskflow/internal/models"
 )
@@ -160,7 +163,7 @@ func (r *Repository) DeleteUser(ctx context.Context, userID int64) error {
 
 func (r *Repository) Projects(ctx context.Context) ([]models.Project, error) {
 	rows, err := r.db.QueryContext(ctx, `
-SELECT p.id, p.key, p.name, p.curator_user_id
+SELECT p.id, p.key, p.name, p.status, p.curator_user_id
 FROM projects p
 ORDER BY p.id
 `)
@@ -172,7 +175,7 @@ ORDER BY p.id
 	result := make([]models.Project, 0)
 	for rows.Next() {
 		var p models.Project
-		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.CuratorUserID); err != nil {
+		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.Status, &p.CuratorUserID); err != nil {
 			return nil, fmt.Errorf("scan project: %w", err)
 		}
 
@@ -207,8 +210,8 @@ func (r *Repository) CreateProject(ctx context.Context, in models.CreateProjectI
 
 	primaryCuratorID := in.CuratorIDs[0]
 	res, err := tx.ExecContext(ctx, `
-INSERT INTO projects (key, name, curator_user_id)
-VALUES (?, ?, ?)
+INSERT INTO projects (key, name, status, curator_user_id)
+VALUES (?, ?, 'Активен', ?)
 `, strings.TrimSpace(in.Key), strings.TrimSpace(in.Name), primaryCuratorID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
@@ -329,6 +332,23 @@ func (r *Repository) DeleteProject(ctx context.Context, projectID int64) error {
 		return fmt.Errorf("commit tx: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) IsProjectAssignee(ctx context.Context, projectID, userID int64) (bool, error) {
+	var exists int
+	err := r.db.QueryRowContext(ctx, `
+SELECT 1
+FROM project_assignees
+WHERE project_id = ? AND user_id = ?
+LIMIT 1
+`, projectID, userID).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("check project assignee: %w", err)
+	}
+	return true, nil
 }
 
 func (r *Repository) Tasks(ctx context.Context, projectID *int64) ([]models.Task, error) {
@@ -511,6 +531,129 @@ func (r *Repository) DeleteTask(ctx context.Context, taskID int64) error {
 		return fmt.Errorf("commit tx: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) IsTaskAssignee(ctx context.Context, taskID, userID int64) (bool, error) {
+	var exists int
+	err := r.db.QueryRowContext(ctx, `
+SELECT 1
+FROM task_assignees
+WHERE task_id = ? AND user_id = ?
+LIMIT 1
+`, taskID, userID).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("check task assignee: %w", err)
+	}
+	return true, nil
+}
+
+func (r *Repository) CreateReport(ctx context.Context, in models.CreateReportInput) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO reports (target_type, target_id, author_user_id, title, resolution, file_name, file_path, file_size)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`, strings.TrimSpace(in.TargetType), in.TargetID, in.AuthorID, strings.TrimSpace(in.Title), strings.TrimSpace(in.Resolution), strings.TrimSpace(in.FileName), strings.TrimSpace(in.FilePath), in.FileSize); err != nil {
+		return fmt.Errorf("insert report: %w", err)
+	}
+
+	if in.CloseItem {
+		switch strings.ToLower(strings.TrimSpace(in.TargetType)) {
+		case "task":
+			if _, err := tx.ExecContext(ctx, `UPDATE tasks SET status = 'Done' WHERE id = ?`, in.TargetID); err != nil {
+				return fmt.Errorf("close task: %w", err)
+			}
+		case "project":
+			if _, err := tx.ExecContext(ctx, `UPDATE projects SET status = 'Закрыт' WHERE id = ?`, in.TargetID); err != nil {
+				return fmt.Errorf("close project: %w", err)
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE tasks SET status = 'Done' WHERE project_id = ?`, in.TargetID); err != nil {
+				return fmt.Errorf("close project tasks: %w", err)
+			}
+		default:
+			return errors.New("неподдерживаемый тип отчета")
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) Reports(ctx context.Context) ([]models.Report, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT r.id,
+       r.target_type,
+       r.target_id,
+       CASE
+         WHEN lower(r.target_type) = 'task' THEN COALESCE((SELECT t.key || ' | ' || t.title FROM tasks t WHERE t.id = r.target_id), 'Задача #' || r.target_id)
+         WHEN lower(r.target_type) = 'project' THEN COALESCE((SELECT p.key || ' | ' || p.name FROM projects p WHERE p.id = r.target_id), 'Проект #' || r.target_id)
+         ELSE r.target_type || ' #' || r.target_id
+       END,
+       r.author_user_id,
+       u.full_name,
+       r.title,
+       r.resolution,
+       r.file_name,
+       r.file_size,
+       r.created_at
+FROM reports r
+JOIN users u ON u.id = r.author_user_id
+ORDER BY r.id DESC
+`)
+	if err != nil {
+		return nil, fmt.Errorf("query reports: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]models.Report, 0)
+	for rows.Next() {
+		var item models.Report
+		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.TargetLabel, &item.AuthorID, &item.AuthorName, &item.Title, &item.Resolution, &item.FileName, &item.FileSize, &item.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan report: %w", err)
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
+func (r *Repository) ReportFilePath(ctx context.Context, reportID int64) (string, string, error) {
+	var filePath, fileName string
+	err := r.db.QueryRowContext(ctx, `SELECT file_path, file_name FROM reports WHERE id = ?`, reportID).Scan(&filePath, &fileName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", "", errors.New("отчет не найден")
+		}
+		return "", "", fmt.Errorf("get report file: %w", err)
+	}
+	if strings.TrimSpace(filePath) == "" {
+		return "", "", errors.New("файл не прикреплен")
+	}
+	return filePath, fileName, nil
+}
+
+func (r *Repository) SaveReportFile(baseDir, originalName string, content []byte) (string, int64, error) {
+	if len(content) == 0 {
+		return "", 0, nil
+	}
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		return "", 0, fmt.Errorf("create reports dir: %w", err)
+	}
+	ext := filepath.Ext(originalName)
+	filename := fmt.Sprintf("report_%d%s", time.Now().UnixNano(), ext)
+	fullPath := filepath.Join(baseDir, filename)
+	if err := os.WriteFile(fullPath, content, 0o644); err != nil {
+		return "", 0, fmt.Errorf("save report file: %w", err)
+	}
+	return fullPath, int64(len(content)), nil
 }
 
 func (r *Repository) taskAssignees(ctx context.Context, taskID int64) ([]models.User, error) {

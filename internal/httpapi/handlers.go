@@ -1,7 +1,12 @@
 package httpapi
 
 import (
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/mvd/taskflow/internal/models"
@@ -327,4 +332,143 @@ func isAllowedRole(role string) bool {
 	default:
 		return false
 	}
+}
+
+func (s *Server) reports(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		items, err := s.repo.Reports(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	case http.MethodPost:
+		actorLogin := strings.TrimSpace(r.Header.Get("X-Actor-Login"))
+		if actorLogin == "" {
+			writeError(w, http.StatusUnauthorized, "нужен заголовок X-Actor-Login")
+			return
+		}
+		actor, err := s.repo.UserByLogin(r.Context(), actorLogin)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "пользователь не найден")
+			return
+		}
+
+		if err := r.ParseMultipartForm(55 << 20); err != nil {
+			writeError(w, http.StatusBadRequest, "ошибка multipart формы")
+			return
+		}
+
+		targetType := strings.ToLower(strings.TrimSpace(r.FormValue("target_type")))
+		targetID, _ := strconv.ParseInt(strings.TrimSpace(r.FormValue("target_id")), 10, 64)
+		title := strings.TrimSpace(r.FormValue("title"))
+		resolution := strings.TrimSpace(r.FormValue("resolution"))
+		closeItem := strings.EqualFold(strings.TrimSpace(r.FormValue("close_item")), "true")
+
+		if (targetType != "task" && targetType != "project") || targetID <= 0 || title == "" || resolution == "" {
+			writeError(w, http.StatusBadRequest, "заполните обязательные поля отчета")
+			return
+		}
+
+		isManager := strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") || strings.EqualFold(actor.Role, "Project Manager")
+		if !isManager {
+			var allowed bool
+			switch targetType {
+			case "task":
+				allowed, err = s.repo.IsTaskAssignee(r.Context(), targetID, actor.ID)
+			case "project":
+				allowed, err = s.repo.IsProjectAssignee(r.Context(), targetID, actor.ID)
+			}
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			if !allowed {
+				writeError(w, http.StatusForbidden, "только назначенный исполнитель может закрыть через отчет")
+				return
+			}
+		}
+
+		const maxBytes = 50 << 20
+		var fileName string
+		var filePath string
+		var fileSize int64
+		file, header, fileErr := r.FormFile("file")
+		if fileErr == nil {
+			defer file.Close()
+			if header.Size > maxBytes {
+				writeError(w, http.StatusBadRequest, "максимальный размер файла 50 МБ")
+				return
+			}
+			data, err := io.ReadAll(io.LimitReader(file, maxBytes+1))
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "не удалось прочитать файл")
+				return
+			}
+			if int64(len(data)) > maxBytes {
+				writeError(w, http.StatusBadRequest, "максимальный размер файла 50 МБ")
+				return
+			}
+			fileName = header.Filename
+			baseDir := filepath.Join(filepath.Dir(s.staticPath), "data", "reports")
+			savedPath, size, err := s.repo.SaveReportFile(baseDir, fileName, data)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			filePath = savedPath
+			fileSize = size
+		}
+
+		in := models.CreateReportInput{
+			TargetType: targetType,
+			TargetID:   targetID,
+			AuthorID:   actor.ID,
+			Title:      title,
+			Resolution: resolution,
+			FileName:   fileName,
+			FilePath:   filePath,
+			FileSize:   fileSize,
+			CloseItem:  closeItem,
+		}
+		if err := s.repo.CreateReport(r.Context(), in); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"message": "отчет сохранен"})
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (s *Server) reportFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	reportID, ok := parseReportFilePath(r.URL.Path)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	filePath, fileName, err := s.repo.ReportFilePath(r.Context(), reportID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	fd, err := os.Open(filePath)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "файл не найден")
+		return
+	}
+	defer fd.Close()
+
+	stat, err := fd.Stat()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "не удалось прочитать файл")
+		return
+	}
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
+	http.ServeContent(w, r, fileName, stat.ModTime(), fd)
 }

@@ -41,4 +41,9 @@ systemctl restart "${SERVICE_NAME}"
 systemctl --no-pager --full status "${SERVICE_NAME}" || true
 
 echo "[5/5] Health"
+if [[ -f "${APP_DIR}/deploy/nginx-taskflow.conf" ]]; then
+  cp "${APP_DIR}/deploy/nginx-taskflow.conf" /etc/nginx/sites-available/taskflow || true
+  nginx -t && systemctl reload nginx || true
+fi
+sleep 2
 curl -fsS http://127.0.0.1:8080/api/v1/health || true

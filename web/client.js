@@ -32,6 +32,19 @@
     return payload;
   }
 
+  async function apiMultipart(path, formData) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: {
+        ...actorHeaders()
+      },
+      body: formData
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error || `HTTP ${res.status}`);
+    return payload;
+  }
+
   function initLoginPage() {
     const btn = document.getElementById('login-btn');
     if (!btn) return;
@@ -199,6 +212,12 @@
     let editingProjectID = null;
     let editingTaskID = null;
     let editingUserID = null;
+    let reports = [];
+    const calendarFilter = {
+      mode: 'month',
+      from: '',
+      to: ''
+    };
     const settings = loadSettings();
 
     function bindMultiLimit(elementID, limit) {
@@ -342,19 +361,53 @@
       const root = document.getElementById('calendar-grid');
       if (!root) return;
       root.innerHTML = '';
-      for (let day = 1; day <= 28; day++) {
+      const tasksWithDate = tasks.filter(t => t.due_date);
+      const mode = calendarFilter.mode;
+
+      if (mode === 'week') {
+        const startBase = calendarFilter.from ? new Date(calendarFilter.from) : new Date();
+        const start = new Date(startBase.getFullYear(), startBase.getMonth(), startBase.getDate());
+        const day = start.getDay();
+        const mondayOffset = (day + 6) % 7;
+        start.setDate(start.getDate() - mondayOffset);
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(start);
+          date.setDate(start.getDate() + i);
+          const iso = date.toISOString().slice(0, 10);
+          const cell = document.createElement('div');
+          cell.className = 'day';
+          cell.innerHTML = `<div>${date.toLocaleDateString('ru-RU')}</div>`;
+          tasksWithDate.forEach(t => {
+            if (t.due_date !== iso) return;
+            if (calendarFilter.to && t.due_date > calendarFilter.to) return;
+            const evt = document.createElement('span');
+            evt.className = 'evt';
+            evt.textContent = `${t.key} ${t.title}`;
+            cell.appendChild(evt);
+          });
+          root.appendChild(cell);
+        }
+        return;
+      }
+
+      const monthBase = calendarFilter.from ? new Date(calendarFilter.from) : new Date();
+      const year = monthBase.getFullYear();
+      const month = monthBase.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(year, month, day);
+        const iso = d.toISOString().slice(0, 10);
         const cell = document.createElement('div');
         cell.className = 'day';
         cell.innerHTML = `<div>${day}</div>`;
-        tasks.forEach(t => {
-          if (!t.due_date) return;
-          const d = Number(String(t.due_date).slice(-2));
-          if (d === day) {
-            const evt = document.createElement('span');
-            evt.className = 'evt';
-            evt.textContent = t.key;
-            cell.appendChild(evt);
-          }
+        tasksWithDate.forEach(t => {
+          if (t.due_date !== iso) return;
+          if (calendarFilter.from && t.due_date < calendarFilter.from) return;
+          if (calendarFilter.to && t.due_date > calendarFilter.to) return;
+          const evt = document.createElement('span');
+          evt.className = 'evt';
+          evt.textContent = `${t.key} ${t.title}`;
+          cell.appendChild(evt);
         });
         root.appendChild(cell);
       }
@@ -399,9 +452,10 @@
           ? `<button class="btn edit-project-btn" data-id="${p.id}">Редактировать</button>
              <button class="btn delete-project-btn" data-id="${p.id}">Удалить</button>`
           : '—';
-        tr.innerHTML = `<td>${p.id}</td><td>${p.key}</td><td>${p.name}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${actions}</td>`;
+        tr.innerHTML = `<td>${p.id}</td><td>${p.key}</td><td>${p.name}</td><td>${p.status || 'Активен'}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${actions}</td>`;
         tbody.appendChild(tr);
       });
+      refreshReportTargetSelect();
     }
 
     async function loadTasks() {
@@ -425,6 +479,34 @@
 
       renderDashboard();
       renderCalendar();
+      refreshReportTargetSelect();
+    }
+
+    async function loadReports() {
+      const data = await api('/api/v1/reports');
+      reports = data.items || [];
+      const tbody = document.querySelector('#reports-table tbody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      reports.forEach(r => {
+        const tr = document.createElement('tr');
+        const fileCell = r.file_name ? `<a href="/api/v1/reports/${r.id}/file" target="_blank">${r.file_name}</a>` : '—';
+        const kind = String(r.target_type).toLowerCase() === 'project' ? 'Проект' : 'Задача';
+        tr.innerHTML = `<td>${r.id}</td><td>${kind}</td><td>${r.target_label}</td><td>${r.author_name}</td><td>${r.title}</td><td>${fileCell}</td><td>${r.created_at}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function refreshReportTargetSelect() {
+      const typeEl = document.getElementById('report-target-type');
+      const targetEl = document.getElementById('report-target-id');
+      if (!typeEl || !targetEl) return;
+      const type = typeEl.value;
+      if (type === 'project') {
+        fillSelect(targetEl, projects, 'id', (p) => `${p.key} | ${p.name}`, false);
+      } else {
+        fillSelect(targetEl, tasks, 'id', (t) => `${t.key} | ${t.title}`, false);
+      }
     }
 
     function editProject(id) {
@@ -442,7 +524,7 @@
       Array.from(document.getElementById('project-assignees').options).forEach(o => {
         o.selected = projectAssignees.has(Number(o.value));
       });
-      setView('projects');
+      setView('project-editor');
     }
 
     function editTask(id) {
@@ -506,6 +588,7 @@
         }
         await loadProjects();
         resetProjectEditor();
+        setView('projects');
       } catch (e) { msg.textContent = e.message; }
     }
 
@@ -562,6 +645,40 @@
       } catch (e) { msg.textContent = e.message; }
     }
 
+    async function saveReport() {
+      const fileInput = document.getElementById('report-file');
+      const file = fileInput?.files?.[0];
+      const targetType = document.getElementById('report-target-type').value;
+      const targetID = Number(document.getElementById('report-target-id').value);
+      const title = document.getElementById('report-title').value.trim();
+      const resolution = document.getElementById('report-resolution').value.trim();
+      const closeItem = document.getElementById('report-close-item').value;
+      const msg = document.getElementById('report-message');
+
+      try {
+        if (!targetID || !title || !resolution) throw new Error('Заполните обязательные поля отчета');
+        if (file && file.size > 50 * 1024 * 1024) throw new Error('Размер файла не должен превышать 50 МБ');
+        const formData = new FormData();
+        formData.set('target_type', targetType);
+        formData.set('target_id', String(targetID));
+        formData.set('title', title);
+        formData.set('resolution', resolution);
+        formData.set('close_item', closeItem);
+        if (file) formData.set('file', file);
+
+        await apiMultipart('/api/v1/reports', formData);
+        msg.textContent = 'Отчет отправлен';
+        document.getElementById('report-title').value = '';
+        document.getElementById('report-resolution').value = '';
+        if (fileInput) fileInput.value = '';
+        await loadProjects();
+        await loadTasks();
+        await loadReports();
+      } catch (e) {
+        msg.textContent = e.message;
+      }
+    }
+
     async function deleteProject(id) {
       if (!canManage) return;
       if (!confirm('Удалить проект и все его задачи?')) return;
@@ -591,6 +708,9 @@
       if (viewBtn) {
         e.preventDefault();
         setView(viewBtn.dataset.view);
+        if (viewBtn.dataset.view === 'reports') {
+          refreshReportTargetSelect();
+        }
       }
 
       const editProjectBtn = e.target.closest('.edit-project-btn');
@@ -627,6 +747,14 @@
     document.getElementById('save-settings-general-btn')?.addEventListener('click', saveGeneralSettings);
     document.getElementById('save-settings-security-btn')?.addEventListener('click', saveSecuritySettings);
     document.getElementById('save-settings-notify-btn')?.addEventListener('click', saveNotifySettings);
+    document.getElementById('report-target-type')?.addEventListener('change', refreshReportTargetSelect);
+    document.getElementById('save-report-btn')?.addEventListener('click', saveReport);
+    document.getElementById('calendar-apply-btn')?.addEventListener('click', () => {
+      calendarFilter.from = document.getElementById('calendar-from').value || '';
+      calendarFilter.to = document.getElementById('calendar-to').value || '';
+      calendarFilter.mode = document.getElementById('calendar-mode').value || 'month';
+      renderCalendar();
+    });
     bindMultiLimit('project-curators', 5);
     bindMultiLimit('project-assignees', 5);
     bindMultiLimit('task-curators', 5);
@@ -636,6 +764,7 @@
       await loadUsers();
       await loadProjects();
       await loadTasks();
+      await loadReports();
       resetProjectEditor();
       resetTaskEditor();
       resetUserEditor();

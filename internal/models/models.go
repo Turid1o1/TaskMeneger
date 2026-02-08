@@ -12,6 +12,7 @@ type Project struct {
 	ID            int64  `json:"id"`
 	Key           string `json:"key"`
 	Name          string `json:"name"`
+	Status        string `json:"status"`
 	CuratorUserID int64  `json:"curator_user_id"`
 	CuratorName   string `json:"curator_name"`
 	CuratorNames  string `json:"curator_names"`
@@ -99,4 +100,30 @@ type UpdateTaskInput struct {
 	CuratorIDs  []int64 `json:"curator_ids"`
 	AssigneeIDs []int64 `json:"assignee_ids"`
 	DueDate     *string `json:"due_date"`
+}
+
+type Report struct {
+	ID          int64  `json:"id"`
+	TargetType  string `json:"target_type"`
+	TargetID    int64  `json:"target_id"`
+	TargetLabel string `json:"target_label"`
+	AuthorID    int64  `json:"author_id"`
+	AuthorName  string `json:"author_name"`
+	Title       string `json:"title"`
+	Resolution  string `json:"resolution"`
+	FileName    string `json:"file_name,omitempty"`
+	FileSize    int64  `json:"file_size,omitempty"`
+	CreatedAt   string `json:"created_at"`
+}
+
+type CreateReportInput struct {
+	TargetType string
+	TargetID   int64
+	AuthorID   int64
+	Title      string
+	Resolution string
+	FileName   string
+	FilePath   string
+	FileSize   int64
+	CloseItem  bool
 }
