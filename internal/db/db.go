@@ -89,29 +89,35 @@ func seed(db *sql.DB) error {
 	const passwordHash = "f48e4108e20d273af6d593944082a371f505ce406144fa6fc815cb52026fbef4"
 
 	_, err := db.Exec(`
-INSERT OR IGNORE INTO users (id, login, password_hash, full_name, position, role) VALUES
-  (1, 'owner', ?, 'Сергей Волков', 'Owner', 'Owner'),
-  (2, 'admin', ?, 'Алексей Смирнов', 'System Administrator', 'Admin'),
-  (3, 'manager', ?, 'Екатерина Петрова', 'Project Manager', 'Project Manager'),
-  (4, 'qa_lead', ?, 'Мария Денисова', 'QA Lead', 'Member');
+INSERT OR IGNORE INTO users (login, password_hash, full_name, position, role) VALUES
+  ('owner', ?, 'Сергей Волков', 'Owner', 'Owner'),
+  ('admin', ?, 'Алексей Смирнов', 'System Administrator', 'Admin'),
+  ('manager', ?, 'Екатерина Петрова', 'Project Manager', 'Project Manager'),
+  ('qa_lead', ?, 'Мария Денисова', 'QA Lead', 'Member');
 `, passwordHash, passwordHash, passwordHash, passwordHash)
 	if err != nil {
 		return fmt.Errorf("seed users: %w", err)
 	}
 
 	_, err = db.Exec(`
-INSERT OR IGNORE INTO projects (id, key, name, curator_user_id) VALUES
-  (1, 'PRJ', 'Система уведомлений', 3),
-  (2, 'OPS', 'Инфраструктура и мониторинг', 1);
+INSERT OR IGNORE INTO projects (key, name, curator_user_id) VALUES
+  ('PRJ', 'Система уведомлений', (SELECT id FROM users WHERE login = 'manager')),
+  ('OPS', 'Инфраструктура и мониторинг', (SELECT id FROM users WHERE login = 'owner'));
 `)
 	if err != nil {
 		return fmt.Errorf("seed projects: %w", err)
 	}
 
 	_, err = db.Exec(`
-INSERT OR IGNORE INTO tasks (id, key, title, description, type, status, priority, project_id, curator_user_id, due_date) VALUES
-  (1, 'PRJ-145', 'Release freeze checklist', 'Подготовка freeze релиза', 'Bug', 'In Progress', 'High', 1, 3, '2026-02-28'),
-  (2, 'OPS-33', 'Обновить dashboard алертов', 'Актуализировать панели мониторинга', 'Task', 'Review', 'Medium', 2, 1, '2026-02-28');
+INSERT OR IGNORE INTO tasks (key, title, description, type, status, priority, project_id, curator_user_id, due_date) VALUES
+  ('PRJ-145', 'Release freeze checklist', 'Подготовка freeze релиза', 'Bug', 'In Progress', 'High',
+   (SELECT id FROM projects WHERE key = 'PRJ'),
+   (SELECT id FROM users WHERE login = 'manager'),
+   '2026-02-28'),
+  ('OPS-33', 'Обновить dashboard алертов', 'Актуализировать панели мониторинга', 'Task', 'Review', 'Medium',
+   (SELECT id FROM projects WHERE key = 'OPS'),
+   (SELECT id FROM users WHERE login = 'owner'),
+   '2026-02-28');
 `)
 	if err != nil {
 		return fmt.Errorf("seed tasks: %w", err)
@@ -119,8 +125,8 @@ INSERT OR IGNORE INTO tasks (id, key, title, description, type, status, priority
 
 	_, err = db.Exec(`
 INSERT OR IGNORE INTO task_assignees (task_id, user_id) VALUES
-  (1, 4),
-  (2, 1);
+  ((SELECT id FROM tasks WHERE key = 'PRJ-145'), (SELECT id FROM users WHERE login = 'qa_lead')),
+  ((SELECT id FROM tasks WHERE key = 'OPS-33'), (SELECT id FROM users WHERE login = 'owner'));
 `)
 	if err != nil {
 		return fmt.Errorf("seed assignees: %w", err)
