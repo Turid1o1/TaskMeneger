@@ -37,6 +37,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/auth/login", s.login)
 	s.mux.HandleFunc("/api/v1/users", s.users)
 	s.mux.HandleFunc("/api/v1/users/", s.userRole)
+	s.mux.HandleFunc("/api/v1/departments", s.departments)
 	s.mux.HandleFunc("/api/v1/projects", s.projects)
 	s.mux.HandleFunc("/api/v1/projects/", s.projectTasks)
 	s.mux.HandleFunc("/api/v1/tasks", s.tasks)

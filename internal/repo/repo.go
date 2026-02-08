@@ -36,8 +36,8 @@ func (r *Repository) Register(ctx context.Context, in models.RegisterInput) erro
 	}
 	hash := r.PasswordHash(in.Password)
 	_, err := r.db.ExecContext(ctx, `
-INSERT INTO users (login, password_hash, full_name, position, role)
-VALUES (?, ?, ?, ?, 'Member')
+INSERT INTO users (login, password_hash, full_name, position, role, department_id)
+VALUES (?, ?, ?, ?, 'Member', 1)
 `, strings.TrimSpace(in.Login), hash, strings.TrimSpace(in.FullName), strings.TrimSpace(in.Position))
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
@@ -70,9 +70,12 @@ FROM users WHERE login = ?
 
 func (r *Repository) Users(ctx context.Context) ([]models.User, error) {
 	rows, err := r.db.QueryContext(ctx, `
-SELECT id, login, full_name, position, role
-FROM users
-ORDER BY id
+SELECT u.id, u.login, u.full_name, u.position, u.role,
+       COALESCE(u.department_id, 1),
+       COALESCE(d.name, 'Отдел не указан')
+FROM users u
+LEFT JOIN departments d ON d.id = u.department_id
+ORDER BY u.id
 `)
 	if err != nil {
 		return nil, fmt.Errorf("query users: %w", err)
@@ -82,7 +85,7 @@ ORDER BY id
 	result := make([]models.User, 0)
 	for rows.Next() {
 		var u models.User
-		if err := rows.Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role); err != nil {
+		if err := rows.Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &u.DepartmentID, &u.DepartmentName); err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
 		}
 		result = append(result, u)
@@ -93,10 +96,13 @@ ORDER BY id
 func (r *Repository) UserByLogin(ctx context.Context, login string) (models.User, error) {
 	var u models.User
 	err := r.db.QueryRowContext(ctx, `
-SELECT id, login, full_name, position, role
-FROM users
-WHERE login = ?
-`, strings.TrimSpace(login)).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role)
+SELECT u.id, u.login, u.full_name, u.position, u.role,
+       COALESCE(u.department_id, 1),
+       COALESCE(d.name, 'Отдел не указан')
+FROM users u
+LEFT JOIN departments d ON d.id = u.department_id
+WHERE u.login = ?
+`, strings.TrimSpace(login)).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &u.DepartmentID, &u.DepartmentName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, errors.New("пользователь не найден")
@@ -124,9 +130,9 @@ func (r *Repository) UpdateUserRole(ctx context.Context, userID int64, role stri
 func (r *Repository) UpdateUser(ctx context.Context, userID int64, in models.UpdateUserInput) error {
 	res, err := r.db.ExecContext(ctx, `
 UPDATE users
-SET login = ?, full_name = ?, position = ?, role = ?
+SET login = ?, full_name = ?, position = ?, role = ?, department_id = ?
 WHERE id = ?
-`, strings.TrimSpace(in.Login), strings.TrimSpace(in.FullName), strings.TrimSpace(in.Position), strings.TrimSpace(in.Role), userID)
+`, strings.TrimSpace(in.Login), strings.TrimSpace(in.FullName), strings.TrimSpace(in.Position), strings.TrimSpace(in.Role), in.DepartmentID, userID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return errors.New("логин уже существует")
@@ -162,11 +168,26 @@ func (r *Repository) DeleteUser(ctx context.Context, userID int64) error {
 }
 
 func (r *Repository) Projects(ctx context.Context) ([]models.Project, error) {
-	rows, err := r.db.QueryContext(ctx, `
-SELECT p.id, p.key, p.name, p.status, p.curator_user_id
+	return r.projectsQuery(ctx, nil)
+}
+
+func (r *Repository) ProjectsByDepartment(ctx context.Context, departmentID int64) ([]models.Project, error) {
+	return r.projectsQuery(ctx, &departmentID)
+}
+
+func (r *Repository) projectsQuery(ctx context.Context, departmentID *int64) ([]models.Project, error) {
+	query := `
+SELECT p.id, p.key, p.name, p.status, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), p.curator_user_id
 FROM projects p
-ORDER BY p.id
-`)
+LEFT JOIN departments d ON d.id = p.department_id
+`
+	args := make([]any, 0)
+	if departmentID != nil {
+		query += " WHERE p.department_id = ?"
+		args = append(args, *departmentID)
+	}
+	query += " ORDER BY p.id"
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query projects: %w", err)
 	}
@@ -175,7 +196,7 @@ ORDER BY p.id
 	result := make([]models.Project, 0)
 	for rows.Next() {
 		var p models.Project
-		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.Status, &p.CuratorUserID); err != nil {
+		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.Status, &p.DepartmentID, &p.DepartmentName, &p.CuratorUserID); err != nil {
 			return nil, fmt.Errorf("scan project: %w", err)
 		}
 
@@ -210,9 +231,9 @@ func (r *Repository) CreateProject(ctx context.Context, in models.CreateProjectI
 
 	primaryCuratorID := in.CuratorIDs[0]
 	res, err := tx.ExecContext(ctx, `
-INSERT INTO projects (key, name, status, curator_user_id)
-VALUES (?, ?, 'Активен', ?)
-`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Name), primaryCuratorID)
+INSERT INTO projects (key, name, status, department_id, curator_user_id)
+VALUES (?, ?, 'Активен', ?, ?)
+`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Name), in.DepartmentID, primaryCuratorID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return errors.New("ключ проекта уже существует")
@@ -252,9 +273,9 @@ func (r *Repository) UpdateProject(ctx context.Context, projectID int64, in mode
 	primaryCuratorID := in.CuratorIDs[0]
 	res, err := tx.ExecContext(ctx, `
 UPDATE projects
-SET key = ?, name = ?, curator_user_id = ?
+SET key = ?, name = ?, department_id = ?, curator_user_id = ?
 WHERE id = ?
-`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Name), primaryCuratorID, projectID)
+`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Name), in.DepartmentID, primaryCuratorID, projectID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return errors.New("ключ проекта уже существует")
@@ -352,16 +373,33 @@ LIMIT 1
 }
 
 func (r *Repository) Tasks(ctx context.Context, projectID *int64) ([]models.Task, error) {
+	return r.tasksQuery(ctx, projectID, nil)
+}
+
+func (r *Repository) TasksByDepartment(ctx context.Context, departmentID int64) ([]models.Task, error) {
+	return r.tasksQuery(ctx, nil, &departmentID)
+}
+
+func (r *Repository) tasksQuery(ctx context.Context, projectID *int64, departmentID *int64) ([]models.Task, error) {
 	query := `
 SELECT t.id, t.key, t.title, t.description, t.type, t.status, t.priority,
-       t.project_id, p.key, t.curator_user_id, t.due_date
+       t.project_id, p.key, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), t.curator_user_id, t.due_date
 FROM tasks t
 JOIN projects p ON p.id = t.project_id
+LEFT JOIN departments d ON d.id = p.department_id
 `
 	args := make([]any, 0)
+	conds := make([]string, 0, 2)
 	if projectID != nil {
-		query += " WHERE t.project_id = ?"
+		conds = append(conds, "t.project_id = ?")
 		args = append(args, *projectID)
+	}
+	if departmentID != nil {
+		conds = append(conds, "p.department_id = ?")
+		args = append(args, *departmentID)
+	}
+	if len(conds) > 0 {
+		query += " WHERE " + strings.Join(conds, " AND ")
 	}
 	query += " ORDER BY t.id"
 
@@ -375,7 +413,7 @@ JOIN projects p ON p.id = t.project_id
 	for rows.Next() {
 		var t models.Task
 		var due sql.NullString
-		if err := rows.Scan(&t.ID, &t.Key, &t.Title, &t.Description, &t.Type, &t.Status, &t.Priority, &t.ProjectID, &t.ProjectKey, &t.CuratorUserID, &due); err != nil {
+		if err := rows.Scan(&t.ID, &t.Key, &t.Title, &t.Description, &t.Type, &t.Status, &t.Priority, &t.ProjectID, &t.ProjectKey, &t.DepartmentID, &t.DepartmentName, &t.CuratorUserID, &due); err != nil {
 			return nil, fmt.Errorf("scan task: %w", err)
 		}
 		if due.Valid {
@@ -640,6 +678,43 @@ func (r *Repository) ReportFilePath(ctx context.Context, reportID int64) (string
 	return filePath, fileName, nil
 }
 
+func (r *Repository) Departments(ctx context.Context) ([]models.Department, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, name FROM departments ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("query departments: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]models.Department, 0)
+	for rows.Next() {
+		var d models.Department
+		if err := rows.Scan(&d.ID, &d.Name); err != nil {
+			return nil, fmt.Errorf("scan department: %w", err)
+		}
+		items = append(items, d)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) UserIDsBelongToDepartment(ctx context.Context, userIDs []int64, departmentID int64) (bool, error) {
+	if len(userIDs) == 0 {
+		return true, nil
+	}
+	placeholders := make([]string, 0, len(userIDs))
+	args := make([]any, 0, len(userIDs)+1)
+	for _, id := range userIDs {
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+	args = append(args, departmentID)
+	query := `SELECT COUNT(DISTINCT id) FROM users WHERE id IN (` + strings.Join(placeholders, ",") + `) AND department_id = ?`
+	var cnt int
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&cnt); err != nil {
+		return false, fmt.Errorf("check users department: %w", err)
+	}
+	return cnt == len(userIDs), nil
+}
+
 func (r *Repository) SaveReportFile(baseDir, originalName string, content []byte) (string, int64, error) {
 	if len(content) == 0 {
 		return "", 0, nil
@@ -654,6 +729,18 @@ func (r *Repository) SaveReportFile(baseDir, originalName string, content []byte
 		return "", 0, fmt.Errorf("save report file: %w", err)
 	}
 	return fullPath, int64(len(content)), nil
+}
+
+func (r *Repository) ProjectDepartmentID(ctx context.Context, projectID int64) (int64, error) {
+	var departmentID int64
+	err := r.db.QueryRowContext(ctx, `SELECT COALESCE(department_id, 1) FROM projects WHERE id = ?`, projectID).Scan(&departmentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, errors.New("проект не найден")
+		}
+		return 0, fmt.Errorf("get project department: %w", err)
+	}
+	return departmentID, nil
 }
 
 func (r *Repository) taskAssignees(ctx context.Context, taskID int64) ([]models.User, error) {

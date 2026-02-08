@@ -45,13 +45,20 @@ CREATE TABLE IF NOT EXISTS users (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS departments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   key TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   curator_user_id INTEGER NOT NULL,
+  department_id INTEGER,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(curator_user_id) REFERENCES users(id)
+  FOREIGN KEY(curator_user_id) REFERENCES users(id),
+  FOREIGN KEY(department_id) REFERENCES departments(id)
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -123,8 +130,28 @@ CREATE TABLE IF NOT EXISTS reports (
 	if err := addColumnIfMissing(db, "projects", "status", "TEXT NOT NULL DEFAULT 'Активен'"); err != nil {
 		return fmt.Errorf("add projects.status: %w", err)
 	}
+	if err := addColumnIfMissing(db, "users", "department_id", "INTEGER"); err != nil {
+		return fmt.Errorf("add users.department_id: %w", err)
+	}
+	if err := addColumnIfMissing(db, "projects", "department_id", "INTEGER"); err != nil {
+		return fmt.Errorf("add projects.department_id: %w", err)
+	}
 	if _, err := db.Exec(`UPDATE projects SET status = 'Активен' WHERE status IS NULL OR status = ''`); err != nil {
 		return fmt.Errorf("normalize projects.status: %w", err)
+	}
+	if _, err := db.Exec(`
+INSERT OR IGNORE INTO departments (id, name) VALUES
+  (1, 'Отдел сопровождения информационных систем'),
+  (2, 'Отдел разработки и интеграций'),
+  (3, 'Отдел поддержки инфраструктуры');
+`); err != nil {
+		return fmt.Errorf("seed departments: %w", err)
+	}
+	if _, err := db.Exec(`UPDATE users SET department_id = 1 WHERE department_id IS NULL OR department_id = 0`); err != nil {
+		return fmt.Errorf("normalize users.department_id: %w", err)
+	}
+	if _, err := db.Exec(`UPDATE projects SET department_id = 1 WHERE department_id IS NULL OR department_id = 0`); err != nil {
+		return fmt.Errorf("normalize projects.department_id: %w", err)
 	}
 	return nil
 }
@@ -234,6 +261,28 @@ INSERT OR IGNORE INTO project_assignees (project_id, user_id) VALUES
 `)
 	if err != nil {
 		return fmt.Errorf("seed project assignees: %w", err)
+	}
+	if _, err := db.Exec(`
+UPDATE users
+SET department_id = CASE
+  WHEN login IN ('owner', 'admin') THEN 3
+  WHEN login IN ('manager', 'qa_lead') THEN 1
+  ELSE 2
+END
+WHERE department_id IS NULL OR department_id = 1;
+`); err != nil {
+		return fmt.Errorf("seed users departments mapping: %w", err)
+	}
+	if _, err := db.Exec(`
+UPDATE projects
+SET department_id = CASE
+  WHEN key = 'PRJ' THEN 1
+  WHEN key = 'OPS' THEN 3
+  ELSE 2
+END
+WHERE department_id IS NULL OR department_id = 1;
+`); err != nil {
+		return fmt.Errorf("seed projects departments mapping: %w", err)
 	}
 
 	return nil

@@ -40,8 +40,8 @@ body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(-
 }
 .login-panel { display: grid; place-items: center; }
 .auth-card { width: min(560px, 100%); background: #d6d6d8; border-radius: 20px; padding: 20px; }
-.auth-card h1 { margin: 0; color: #2d2bd8; font-size: clamp(24px, 2.8vw, 38px); line-height: 1.08; text-transform: uppercase; }
-.auth-sub { margin: 10px 0 16px; color: #66758d; font-size: 16px; }
+.auth-card h1 { margin: 0; color: #2d2bd8; font-size: clamp(24px, 2.8vw, 38px); line-height: 1.08; text-transform: uppercase; text-align: center; }
+.auth-sub { margin: 10px 0 16px; color: #66758d; font-size: 16px; text-align: center; }
 .auth-input { width: 100%; margin-bottom: 8px; border: 0; border-radius: 10px; padding: 10px 12px; font-size: 16px; background: #f8fafc; }
 .auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .auth-btn {
@@ -58,6 +58,7 @@ body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(-
 }
 .auth-btn.secondary { background: #f8fafc; color: #334155; }
 .auth-footer { margin-top: 12px; text-align: center; color: #2d2bd8; font-weight: 700; font-size: 16px; }
+.auth-buttons-center { justify-content: center; }
 
 /* app */
 .shell {
@@ -126,6 +127,11 @@ h1 { margin: 0; font-size: 24px; }
 
 .kanban-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
 .card-col { min-height: 560px; }
+.department-title { font-size: 18px; margin-bottom: 10px; line-height: 1.2; }
+.department-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; margin-bottom: 10px; min-height: 230px; }
+.department-section h4 { margin: 0 0 8px; font-size: 16px; }
+.department-list { margin: 0; padding-left: 16px; color: #475569; font-size: 13px; min-height: 72px; }
+.department-actions { display: flex; gap: 8px; margin-top: 8px; }
 .task-chip { background: #f8fafc; border-radius: 12px; padding: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
 .task-chip strong { font-size: 16px; line-height: 1.2; }
 .task-chip p { margin: 6px 0 0; color: #64748b; font-size: 13px; }

@@ -162,6 +162,11 @@
     return 'Сотрудник';
   }
 
+  function departmentLabel(departmentID, departments) {
+    const found = (departments || []).find(d => Number(d.id) === Number(departmentID));
+    return found ? found.name : 'Все отделы';
+  }
+
   function toIsoDate(v) {
     return v || null;
   }
@@ -207,12 +212,14 @@
     const canManage = ['Owner', 'Admin', 'Project Manager'].includes(session.role);
 
     let users = [];
+    let departments = [];
     let projects = [];
     let tasks = [];
     let editingProjectID = null;
     let editingTaskID = null;
     let editingUserID = null;
     let reports = [];
+    let selectedDepartmentID = null;
     const calendarFilter = {
       mode: 'month',
       from: '',
@@ -237,11 +244,29 @@
       return Array.from(el.selectedOptions).map(o => Number(o.value)).filter(Boolean);
     }
 
+    function filteredUsersByDepartmentID(departmentID) {
+      if (!departmentID) return users.slice();
+      return users.filter(u => Number(u.department_id) === Number(departmentID));
+    }
+
+    function selectedProjectDepartmentID() {
+      const raw = Number(document.getElementById('project-department')?.value || 0);
+      return raw > 0 ? raw : selectedDepartmentID;
+    }
+
+    function selectedTaskDepartmentID() {
+      const projectID = Number(document.getElementById('task-project')?.value || 0);
+      const project = projects.find(p => Number(p.id) === projectID);
+      if (project && Number(project.department_id) > 0) return Number(project.department_id);
+      return selectedDepartmentID;
+    }
+
     function resetProjectEditor() {
       editingProjectID = null;
       document.getElementById('project-editor-title').textContent = 'Создать проект';
       document.getElementById('project-key').value = '';
       document.getElementById('project-name').value = '';
+      document.getElementById('project-department').value = selectedDepartmentID ? String(selectedDepartmentID) : '';
       Array.from(document.getElementById('project-curators').options).forEach(o => (o.selected = false));
       Array.from(document.getElementById('project-assignees').options).forEach(o => (o.selected = false));
       document.getElementById('project-editor-message').textContent = '';
@@ -269,6 +294,7 @@
       document.getElementById('user-login').value = '';
       document.getElementById('user-fullname').value = '';
       document.getElementById('user-position').value = '';
+      document.getElementById('user-department').value = '1';
       document.getElementById('user-role').value = 'Member';
       document.getElementById('user-editor-message').textContent = '';
     }
@@ -331,29 +357,36 @@
     }
 
     function renderDashboard() {
-      const todo = document.getElementById('todo-list');
-      const progress = document.getElementById('progress-list');
-      const done = document.getElementById('done-list');
-      if (!todo || !progress || !done) return;
+      const root = document.getElementById('departments-grid');
+      if (!root) return;
+      root.innerHTML = '';
+      if (!departments.length) {
+        root.innerHTML = '<article class="card-col"><h3>Отделы не найдены</h3></article>';
+        return;
+      }
 
-      todo.innerHTML = '';
-      progress.innerHTML = '';
-      done.innerHTML = '';
-
-      tasks.forEach(t => {
-        const meta = priorityMeta(t.priority);
-        const chip = document.createElement('div');
-        chip.className = 'task-chip';
-        chip.innerHTML = `<strong>${t.title}</strong>
-          <div class="task-chip-row">
-            <p>${t.key}</p>
-            <span class="prio-badge ${meta.cls}">${meta.label}</span>
+      departments.forEach(dep => {
+        const depProjects = projects.filter(p => Number(p.department_id) === Number(dep.id));
+        const depTasks = tasks.filter(t => Number(t.department_id) === Number(dep.id));
+        const card = document.createElement('article');
+        card.className = 'card-col';
+        card.innerHTML = `
+          <h3 class="department-title">${dep.name}</h3>
+          <div class="department-section">
+            <h4>Проекты (${depProjects.length})</h4>
+            <ul class="department-list">${depProjects.slice(0, 4).map(p => `<li>${p.key} | ${p.name}</li>`).join('') || '<li>Нет проектов</li>'}</ul>
+            <div class="department-actions">
+              <button class="btn primary open-department-projects-btn" data-department-id="${dep.id}">Открыть проекты</button>
+            </div>
+          </div>
+          <div class="department-section">
+            <h4>Задачи (${depTasks.length})</h4>
+            <ul class="department-list">${depTasks.slice(0, 4).map(t => `<li>${t.key} | ${t.title}</li>`).join('') || '<li>Нет задач</li>'}</ul>
+            <div class="department-actions">
+              <button class="btn primary open-department-tasks-btn" data-department-id="${dep.id}">Открыть задачи</button>
+            </div>
           </div>`;
-
-        const status = (t.status || '').toLowerCase();
-        if (status.includes('done') || status.includes('заверш')) done.appendChild(chip);
-        else if (status.includes('progress') || status.includes('review') || status.includes('процесс') || status.includes('провер')) progress.appendChild(chip);
-        else todo.appendChild(chip);
+        root.appendChild(card);
       });
     }
 
@@ -413,14 +446,28 @@
       }
     }
 
+    async function loadDepartments() {
+      const data = await api('/api/v1/departments');
+      departments = data.items || [];
+      fillSelect(document.getElementById('project-department'), departments, 'id', 'name', true);
+      fillSelect(document.getElementById('user-department'), departments, 'id', 'name', false);
+    }
+
+    function refreshStaffSelectors() {
+      const projectDeptID = selectedProjectDepartmentID();
+      const taskDeptID = selectedTaskDepartmentID();
+      const projectUsers = filteredUsersByDepartmentID(projectDeptID);
+      const taskUsers = filteredUsersByDepartmentID(taskDeptID);
+      fillSelect(document.getElementById('project-curators'), projectUsers, 'id', (u) => `${u.full_name} (${u.position})`, false);
+      fillSelect(document.getElementById('project-assignees'), projectUsers, 'id', (u) => `${u.full_name} (${u.position})`, false);
+      fillSelect(document.getElementById('task-curators'), taskUsers, 'id', (u) => `${u.full_name} (${u.position})`, false);
+      fillSelect(document.getElementById('task-assignees'), taskUsers, 'id', (u) => `${u.full_name} (${u.position})`, false);
+    }
+
     async function loadUsers() {
       const data = await api('/api/v1/users');
       users = data.items || [];
-
-      fillSelect(document.getElementById('project-curators'), users, 'id', (u) => `${u.full_name} (${u.position})`, false);
-      fillSelect(document.getElementById('project-assignees'), users, 'id', (u) => `${u.full_name} (${u.position})`, false);
-      fillSelect(document.getElementById('task-curators'), users, 'id', (u) => `${u.full_name} (${u.position})`, false);
-      fillSelect(document.getElementById('task-assignees'), users, 'id', (u) => `${u.full_name} (${u.position})`, false);
+      refreshStaffSelectors();
 
       const tbody = document.querySelector('#users-table tbody');
       if (!tbody) return;
@@ -431,16 +478,23 @@
           ? `<button class="btn edit-user-btn" data-id="${u.id}">Редактировать</button>
              <button class="btn delete-user-btn" data-id="${u.id}">Удалить</button>`
           : '—';
-        tr.innerHTML = `<td>${u.id}</td><td>${u.login}</td><td>${u.full_name}</td><td>${u.position}</td><td>${roleLabel(u.role)}</td><td>Активен</td><td>${actions}</td>`;
+        tr.innerHTML = `<td>${u.id}</td><td>${u.login}</td><td>${u.full_name}</td><td>${u.position}</td><td>${u.department_name || '—'}</td><td>${roleLabel(u.role)}</td><td>Активен</td><td>${actions}</td>`;
         tbody.appendChild(tr);
       });
     }
 
     async function loadProjects() {
-      const data = await api('/api/v1/projects');
+      const qs = selectedDepartmentID ? `?department_id=${selectedDepartmentID}` : '';
+      const data = await api(`/api/v1/projects${qs}`);
       projects = data.items || [];
 
       fillSelect(document.getElementById('task-project'), projects, 'id', (p) => `${p.key} | ${p.name}`, true);
+      const projectSub = document.getElementById('projects-subtitle');
+      if (projectSub) {
+        projectSub.textContent = selectedDepartmentID
+          ? `Проекты отдела: ${departmentLabel(selectedDepartmentID, departments)}`
+          : 'Список проектов, редактирование и удаление';
+      }
 
       const tbody = document.querySelector('#projects-table tbody');
       if (!tbody) return;
@@ -452,15 +506,22 @@
           ? `<button class="btn edit-project-btn" data-id="${p.id}">Редактировать</button>
              <button class="btn delete-project-btn" data-id="${p.id}">Удалить</button>`
           : '—';
-        tr.innerHTML = `<td>${p.id}</td><td>${p.key}</td><td>${p.name}</td><td>${p.status || 'Активен'}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${actions}</td>`;
+        tr.innerHTML = `<td>${p.id}</td><td>${p.key}</td><td>${p.name}</td><td>${p.department_name || '—'}</td><td>${p.status || 'Активен'}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${actions}</td>`;
         tbody.appendChild(tr);
       });
       refreshReportTargetSelect();
     }
 
     async function loadTasks() {
-      const data = await api('/api/v1/tasks');
+      const qs = selectedDepartmentID ? `?department_id=${selectedDepartmentID}` : '';
+      const data = await api(`/api/v1/tasks${qs}`);
       tasks = data.items || [];
+      const taskSub = document.getElementById('tasks-subtitle');
+      if (taskSub) {
+        taskSub.textContent = selectedDepartmentID
+          ? `Задачи отдела: ${departmentLabel(selectedDepartmentID, departments)}`
+          : 'Исполнитель и куратор обязательны в каждой задаче';
+      }
 
       const tbody = document.querySelector('#tasks-table tbody');
       if (!tbody) return;
@@ -473,7 +534,7 @@
           ? `<button class="btn edit-task-btn" data-id="${t.id}">Редактировать</button>
              <button class="btn delete-task-btn" data-id="${t.id}">Удалить</button>`
           : '—';
-        tr.innerHTML = `<td>${t.id}</td><td>${t.key}</td><td>${t.title}</td><td>${typeLabel(t.type)}</td><td>${statusLabel(t.status)}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_key}</td><td>${actions}</td>`;
+        tr.innerHTML = `<td>${t.id}</td><td>${t.key}</td><td>${t.title}</td><td>${t.department_name || '—'}</td><td>${typeLabel(t.type)}</td><td>${statusLabel(t.status)}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_key}</td><td>${actions}</td>`;
         tbody.appendChild(tr);
       });
 
@@ -509,6 +570,14 @@
       }
     }
 
+    async function applyDepartmentFilter(departmentID, targetView) {
+      selectedDepartmentID = departmentID ? Number(departmentID) : null;
+      await loadProjects();
+      await loadTasks();
+      renderDashboard();
+      if (targetView) setView(targetView);
+    }
+
     function editProject(id) {
       const item = projects.find(p => Number(p.id) === Number(id));
       if (!item) return;
@@ -516,6 +585,8 @@
       document.getElementById('project-editor-title').textContent = `Редактирование проекта #${item.id}`;
       document.getElementById('project-key').value = item.key;
       document.getElementById('project-name').value = item.name;
+      document.getElementById('project-department').value = String(item.department_id || selectedDepartmentID || '');
+      refreshStaffSelectors();
       const projectCurators = new Set((item.curators || []).map(u => Number(u.id)));
       const projectAssignees = new Set((item.assignees || []).map(u => Number(u.id)));
       Array.from(document.getElementById('project-curators').options).forEach(o => {
@@ -541,6 +612,7 @@
       document.getElementById('task-priority').value = item.priority;
       document.getElementById('task-due-date').value = item.due_date || '';
       document.getElementById('task-description').value = item.description || '';
+      refreshStaffSelectors();
       const curatorSelected = new Set((item.curators || []).map(c => Number(c.id)));
       Array.from(document.getElementById('task-curators').options).forEach(o => {
         o.selected = curatorSelected.has(Number(o.value));
@@ -560,6 +632,7 @@
       document.getElementById('user-login').value = item.login;
       document.getElementById('user-fullname').value = item.full_name;
       document.getElementById('user-position').value = item.position;
+      document.getElementById('user-department').value = String(item.department_id || 1);
       document.getElementById('user-role').value = item.role;
       setView('users');
     }
@@ -570,13 +643,14 @@
       const payload = {
         key: document.getElementById('project-key').value.trim(),
         name: document.getElementById('project-name').value.trim(),
+        department_id: Number(document.getElementById('project-department').value || selectedDepartmentID || 0),
         curator_ids: curatorIDs,
         assignee_ids: assigneeIDs
       };
       const msg = document.getElementById('project-editor-message');
       try {
         if (!canManage) throw new Error('Недостаточно прав');
-        if (!payload.key || !payload.name) throw new Error('Заполните поля проекта');
+        if (!payload.key || !payload.name || !payload.department_id) throw new Error('Заполните поля проекта');
         if (curatorIDs.length < 1 || curatorIDs.length > 5) throw new Error('Выберите от 1 до 5 кураторов');
         if (assigneeIDs.length < 1 || assigneeIDs.length > 5) throw new Error('Выберите от 1 до 5 исполнителей');
         if (editingProjectID) {
@@ -631,13 +705,14 @@
         login: document.getElementById('user-login').value.trim(),
         full_name: document.getElementById('user-fullname').value.trim(),
         position: document.getElementById('user-position').value.trim(),
-        role: document.getElementById('user-role').value
+        role: document.getElementById('user-role').value,
+        department_id: Number(document.getElementById('user-department').value || 0)
       };
       const msg = document.getElementById('user-editor-message');
       try {
         if (!canManage) throw new Error('Недостаточно прав');
         if (!editingUserID) throw new Error('Сначала выберите пользователя');
-        if (!payload.login || !payload.full_name || !payload.position) throw new Error('Заполните поля пользователя');
+        if (!payload.login || !payload.full_name || !payload.position || !payload.department_id) throw new Error('Заполните поля пользователя');
         await api(`/api/v1/users/${editingUserID}`, { method: 'PUT', body: JSON.stringify(payload) });
         msg.textContent = 'Пользователь обновлен';
         await loadUsers();
@@ -707,10 +782,24 @@
       const viewBtn = e.target.closest('[data-view]');
       if (viewBtn) {
         e.preventDefault();
+        if (viewBtn.dataset.view === 'project-editor') {
+          resetProjectEditor();
+          refreshStaffSelectors();
+        }
         setView(viewBtn.dataset.view);
         if (viewBtn.dataset.view === 'reports') {
           refreshReportTargetSelect();
         }
+      }
+
+      const openDepProjectsBtn = e.target.closest('.open-department-projects-btn');
+      if (openDepProjectsBtn) {
+        try { await applyDepartmentFilter(openDepProjectsBtn.dataset.departmentId, 'projects'); } catch (err) { alert(err.message); }
+      }
+
+      const openDepTasksBtn = e.target.closest('.open-department-tasks-btn');
+      if (openDepTasksBtn) {
+        try { await applyDepartmentFilter(openDepTasksBtn.dataset.departmentId, 'tasks'); } catch (err) { alert(err.message); }
       }
 
       const editProjectBtn = e.target.closest('.edit-project-btn');
@@ -755,12 +844,18 @@
       calendarFilter.mode = document.getElementById('calendar-mode').value || 'month';
       renderCalendar();
     });
+    document.getElementById('clear-department-filter-btn')?.addEventListener('click', async () => {
+      await applyDepartmentFilter(null, 'dashboard');
+    });
+    document.getElementById('project-department')?.addEventListener('change', refreshStaffSelectors);
+    document.getElementById('task-project')?.addEventListener('change', refreshStaffSelectors);
     bindMultiLimit('project-curators', 5);
     bindMultiLimit('project-assignees', 5);
     bindMultiLimit('task-curators', 5);
     bindMultiLimit('task-assignees', 5);
 
     try {
+      await loadDepartments();
       await loadUsers();
       await loadProjects();
       await loadTasks();
@@ -768,6 +863,7 @@
       resetProjectEditor();
       resetTaskEditor();
       resetUserEditor();
+      refreshStaffSelectors();
       hydrateSettingsForms();
       setView('dashboard');
     } catch (e) {

@@ -82,6 +82,19 @@ func (s *Server) users(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": users})
 }
 
+func (s *Server) departments(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	items, err := s.repo.Departments(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
 func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 	if userID, ok := parseUserRolePath(r.URL.Path); ok {
 		if r.Method != http.MethodPatch {
@@ -127,7 +140,7 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Login == "" || input.FullName == "" || input.Position == "" || !isAllowedRole(input.Role) {
+		if input.Login == "" || input.FullName == "" || input.Position == "" || !isAllowedRole(input.Role) || input.DepartmentID <= 0 {
 			writeError(w, http.StatusBadRequest, "заполните корректные поля")
 			return
 		}
@@ -150,7 +163,17 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		projects, err := s.repo.Projects(r.Context())
+		departmentID, err := readOptionalInt64Query(r, "department_id")
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		var projects []models.Project
+		if departmentID != nil {
+			projects, err = s.repo.ProjectsByDepartment(r.Context(), *departmentID)
+		} else {
+			projects, err = s.repo.Projects(r.Context())
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -165,8 +188,18 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Key == "" || input.Name == "" || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
+		if input.Key == "" || input.Name == "" || input.DepartmentID <= 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
+			return
+		}
+		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
+		ok, err := s.repo.UserIDsBelongToDepartment(r.Context(), allIDs, input.DepartmentID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !ok {
+			writeError(w, http.StatusBadRequest, "кураторы и исполнители должны быть из выбранного отдела")
 			return
 		}
 		if err := s.repo.CreateProject(r.Context(), input); err != nil {
@@ -211,8 +244,18 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Key == "" || input.Name == "" || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
+		if input.Key == "" || input.Name == "" || input.DepartmentID <= 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
+			return
+		}
+		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
+		ok, err := s.repo.UserIDsBelongToDepartment(r.Context(), allIDs, input.DepartmentID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !ok {
+			writeError(w, http.StatusBadRequest, "кураторы и исполнители должны быть из выбранного отдела")
 			return
 		}
 		if err := s.repo.UpdateProject(r.Context(), projectID, input); err != nil {
@@ -234,7 +277,17 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		tasks, err := s.repo.Tasks(r.Context(), nil)
+		departmentID, err := readOptionalInt64Query(r, "department_id")
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		var tasks []models.Task
+		if departmentID != nil {
+			tasks, err = s.repo.TasksByDepartment(r.Context(), *departmentID)
+		} else {
+			tasks, err = s.repo.Tasks(r.Context(), nil)
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -251,6 +304,21 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 		}
 		if input.Key == "" || input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
+			return
+		}
+		departmentID, err := s.repo.ProjectDepartmentID(r.Context(), input.ProjectID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
+		ok, err := s.repo.UserIDsBelongToDepartment(r.Context(), allIDs, departmentID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !ok {
+			writeError(w, http.StatusBadRequest, "кураторы и исполнители должны быть из отдела проекта")
 			return
 		}
 		if err := s.repo.CreateTask(r.Context(), input); err != nil {
@@ -283,6 +351,21 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 		}
 		if input.Key == "" || input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
+			return
+		}
+		departmentID, err := s.repo.ProjectDepartmentID(r.Context(), input.ProjectID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
+		ok, err := s.repo.UserIDsBelongToDepartment(r.Context(), allIDs, departmentID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !ok {
+			writeError(w, http.StatusBadRequest, "кураторы и исполнители должны быть из отдела проекта")
 			return
 		}
 		if err := s.repo.UpdateTask(r.Context(), taskID, input); err != nil {
@@ -471,4 +554,32 @@ func (s *Server) reportFile(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
 	http.ServeContent(w, r, fileName, stat.ModTime(), fd)
+}
+
+func readOptionalInt64Query(r *http.Request, key string) (*int64, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get(key))
+	if raw == "" {
+		return nil, nil
+	}
+	v, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || v <= 0 {
+		return nil, fmt.Errorf("некорректный параметр %s", key)
+	}
+	return &v, nil
+}
+
+func uniqueInt64(values []int64) []int64 {
+	if len(values) == 0 {
+		return values
+	}
+	seen := make(map[int64]struct{}, len(values))
+	out := make([]int64, 0, len(values))
+	for _, v := range values {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
 }

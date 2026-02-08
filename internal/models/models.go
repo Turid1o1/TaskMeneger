@@ -1,11 +1,13 @@
 package models
 
 type User struct {
-	ID       int64  `json:"id"`
-	Login    string `json:"login"`
-	FullName string `json:"full_name"`
-	Position string `json:"position"`
-	Role     string `json:"role"`
+	ID             int64  `json:"id"`
+	Login          string `json:"login"`
+	FullName       string `json:"full_name"`
+	Position       string `json:"position"`
+	Role           string `json:"role"`
+	DepartmentID   int64  `json:"department_id"`
+	DepartmentName string `json:"department_name"`
 }
 
 type Project struct {
@@ -13,6 +15,8 @@ type Project struct {
 	Key           string `json:"key"`
 	Name          string `json:"name"`
 	Status        string `json:"status"`
+	DepartmentID  int64  `json:"department_id"`
+	DepartmentName string `json:"department_name"`
 	CuratorUserID int64  `json:"curator_user_id"`
 	CuratorName   string `json:"curator_name"`
 	CuratorNames  string `json:"curator_names"`
@@ -31,6 +35,8 @@ type Task struct {
 	Priority      string  `json:"priority"`
 	ProjectID     int64   `json:"project_id"`
 	ProjectKey    string  `json:"project_key"`
+	DepartmentID  int64   `json:"department_id"`
+	DepartmentName string `json:"department_name"`
 	CuratorUserID int64   `json:"curator_user_id"`
 	CuratorName   string  `json:"curator_name"`
 	Curators      []User  `json:"curators"`
@@ -65,17 +71,19 @@ type CreateTaskInput struct {
 }
 
 type CreateProjectInput struct {
-	Key         string  `json:"key"`
-	Name        string  `json:"name"`
-	CuratorIDs  []int64 `json:"curator_ids"`
-	AssigneeIDs []int64 `json:"assignee_ids"`
+	Key          string  `json:"key"`
+	Name         string  `json:"name"`
+	DepartmentID int64   `json:"department_id"`
+	CuratorIDs   []int64 `json:"curator_ids"`
+	AssigneeIDs  []int64 `json:"assignee_ids"`
 }
 
 type UpdateProjectInput struct {
-	Key         string  `json:"key"`
-	Name        string  `json:"name"`
-	CuratorIDs  []int64 `json:"curator_ids"`
-	AssigneeIDs []int64 `json:"assignee_ids"`
+	Key          string  `json:"key"`
+	Name         string  `json:"name"`
+	DepartmentID int64   `json:"department_id"`
+	CuratorIDs   []int64 `json:"curator_ids"`
+	AssigneeIDs  []int64 `json:"assignee_ids"`
 }
 
 type UpdateUserRoleInput struct {
@@ -83,10 +91,11 @@ type UpdateUserRoleInput struct {
 }
 
 type UpdateUserInput struct {
-	Login    string `json:"login"`
-	FullName string `json:"full_name"`
-	Position string `json:"position"`
-	Role     string `json:"role"`
+	Login        string `json:"login"`
+	FullName     string `json:"full_name"`
+	Position     string `json:"position"`
+	Role         string `json:"role"`
+	DepartmentID int64  `json:"department_id"`
 }
 
 type UpdateTaskInput struct {
@@ -126,4 +135,9 @@ type CreateReportInput struct {
 	FilePath   string
 	FileSize   int64
 	CloseItem  bool
+}
+
+type Department struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
