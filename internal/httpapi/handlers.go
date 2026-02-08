@@ -214,12 +214,14 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var projects []models.Project
-		if !isSuperRole(actor.Role) {
-			projects, err = s.repo.ProjectsByDepartment(r.Context(), actor.DepartmentID)
-		} else if departmentID != nil {
+		if isSuperRole(actor.Role) && departmentID != nil {
 			projects, err = s.repo.ProjectsByDepartment(r.Context(), *departmentID)
-		} else {
+		} else if isSuperRole(actor.Role) {
 			projects, err = s.repo.Projects(r.Context())
+		} else if strings.EqualFold(actor.Role, "Project Manager") {
+			projects, err = s.repo.ProjectsByDepartment(r.Context(), actor.DepartmentID)
+		} else {
+			projects, err = s.repo.ProjectsByUser(r.Context(), actor.ID)
 		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
@@ -305,10 +307,23 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if !isSuperRole(actor.Role) {
+		if strings.EqualFold(actor.Role, "Project Manager") {
 			filtered := make([]models.Task, 0, len(tasks))
 			for _, t := range tasks {
 				if t.DepartmentID == actor.DepartmentID {
+					filtered = append(filtered, t)
+				}
+			}
+			tasks = filtered
+		} else if !isSuperRole(actor.Role) {
+			filtered := make([]models.Task, 0, len(tasks))
+			for _, t := range tasks {
+				ok, err := s.repo.IsTaskParticipant(r.Context(), t.ID, actor.ID)
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, err.Error())
+					return
+				}
+				if ok {
 					filtered = append(filtered, t)
 				}
 			}
@@ -378,12 +393,14 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var tasks []models.Task
-		if !isSuperRole(actor.Role) {
-			tasks, err = s.repo.TasksByDepartment(r.Context(), actor.DepartmentID)
-		} else if departmentID != nil {
+		if isSuperRole(actor.Role) && departmentID != nil {
 			tasks, err = s.repo.TasksByDepartment(r.Context(), *departmentID)
-		} else {
+		} else if isSuperRole(actor.Role) {
 			tasks, err = s.repo.Tasks(r.Context(), nil)
+		} else if strings.EqualFold(actor.Role, "Project Manager") {
+			tasks, err = s.repo.TasksByDepartment(r.Context(), actor.DepartmentID)
+		} else {
+			tasks, err = s.repo.TasksByUser(r.Context(), actor.ID)
 		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
@@ -569,8 +586,10 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request) {
 		)
 		if isSuperRole(actor.Role) {
 			items, err = s.repo.Reports(r.Context())
-		} else {
+		} else if strings.EqualFold(actor.Role, "Project Manager") {
 			items, err = s.repo.ReportsByDepartment(r.Context(), actor.DepartmentID)
+		} else {
+			items, err = s.repo.ReportsByUser(r.Context(), actor.ID)
 		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())

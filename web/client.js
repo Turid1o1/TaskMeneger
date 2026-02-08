@@ -274,6 +274,11 @@
       if (navSettings) navSettings.style.display = 'none';
       if (navProjects) navProjects.textContent = 'Мои проекты';
       if (navTasks) navTasks.textContent = 'Мои задачи';
+      document.querySelectorAll('button[data-view="dashboard"]').forEach((btn) => {
+        btn.dataset.view = 'tasks';
+        if (!btn.textContent.includes('Назад')) return;
+        btn.textContent = 'Назад к задачам';
+      });
     }
 
     function bindMultiLimit(elementID, limit) {

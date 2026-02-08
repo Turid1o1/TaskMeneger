@@ -156,12 +156,13 @@ h1 { margin: 0; font-size: 28px; letter-spacing: 0.2px; }
 .settings-link:hover { outline: 2px solid #c5d4f8; }
 
 .kanban-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
-.card-col { min-height: 520px; }
-.department-title { font-size: 18px; margin-bottom: 10px; line-height: 1.2; }
-.department-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 12px; min-height: 230px; }
+.card-col { min-height: 520px; display: flex; flex-direction: column; gap: 12px; }
+.department-title { font-size: 18px; margin: 0; line-height: 1.2; min-height: 72px; }
+.department-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; min-height: 230px; display: flex; flex-direction: column; flex: 1; }
 .department-section h4 { margin: 0 0 8px; font-size: 16px; }
-.department-list { margin: 0; padding-left: 16px; color: #475569; font-size: 13px; min-height: 72px; }
-.department-actions { display: flex; gap: 8px; margin-top: 8px; }
+.department-list { margin: 0; padding-left: 16px; color: #475569; font-size: 13px; line-height: 1.32; flex: 1; overflow: auto; }
+.department-list li { margin-bottom: 4px; }
+.department-actions { display: flex; gap: 8px; margin-top: 10px; }
 .department-actions .btn { width: 100%; justify-content: center; padding: 10px 12px; }
 .task-chip { background: #f8fafc; border-radius: 12px; padding: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
 .task-chip strong { font-size: 16px; line-height: 1.2; }

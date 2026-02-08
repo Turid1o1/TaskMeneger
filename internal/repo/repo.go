@@ -212,6 +212,56 @@ func (r *Repository) ProjectsByDepartment(ctx context.Context, departmentID int6
 	return r.projectsQuery(ctx, &departmentID)
 }
 
+func (r *Repository) ProjectsByUser(ctx context.Context, userID int64) ([]models.Project, error) {
+	query := `
+SELECT p.id, p.key, p.name, p.status, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), p.curator_user_id
+FROM projects p
+LEFT JOIN departments d ON d.id = p.department_id
+WHERE EXISTS (
+  SELECT 1
+  FROM (
+    SELECT user_id FROM project_assignees WHERE project_id = p.id
+    UNION
+    SELECT user_id FROM project_curators WHERE project_id = p.id
+  ) x
+  WHERE x.user_id = ?
+)
+ORDER BY p.id
+`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query projects by user: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]models.Project, 0)
+	for rows.Next() {
+		var p models.Project
+		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.Status, &p.DepartmentID, &p.DepartmentName, &p.CuratorUserID); err != nil {
+			return nil, fmt.Errorf("scan project by user: %w", err)
+		}
+
+		curators, err := r.projectCurators(ctx, p.ID)
+		if err != nil {
+			return nil, err
+		}
+		assignees, err := r.projectAssignees(ctx, p.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		p.Curators = curators
+		p.Assignees = assignees
+		if len(curators) > 0 {
+			p.CuratorName = curators[0].FullName
+		}
+		p.CuratorNames = usersToNames(curators)
+		p.AssigneeNames = usersToNames(assignees)
+		result = append(result, p)
+	}
+	return result, rows.Err()
+}
+
 func (r *Repository) projectsQuery(ctx context.Context, departmentID *int64) ([]models.Project, error) {
 	query := `
 SELECT p.id, p.key, p.name, p.status, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), p.curator_user_id
@@ -440,6 +490,67 @@ func (r *Repository) Tasks(ctx context.Context, projectID *int64) ([]models.Task
 
 func (r *Repository) TasksByDepartment(ctx context.Context, departmentID int64) ([]models.Task, error) {
 	return r.tasksQuery(ctx, nil, &departmentID)
+}
+
+func (r *Repository) TasksByUser(ctx context.Context, userID int64) ([]models.Task, error) {
+	query := `
+SELECT t.id, t.key, t.title, t.description, t.type, t.status, t.priority,
+       t.project_id, p.key, p.name, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), t.curator_user_id, t.due_date
+FROM tasks t
+JOIN projects p ON p.id = t.project_id
+LEFT JOIN departments d ON d.id = p.department_id
+WHERE EXISTS (
+  SELECT 1
+  FROM (
+    SELECT user_id FROM task_assignees WHERE task_id = t.id
+    UNION
+    SELECT user_id FROM task_curators WHERE task_id = t.id
+  ) x
+  WHERE x.user_id = ?
+)
+ORDER BY t.id
+`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query tasks by user: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]models.Task, 0)
+	for rows.Next() {
+		var t models.Task
+		var due sql.NullString
+		if err := rows.Scan(&t.ID, &t.Key, &t.Title, &t.Description, &t.Type, &t.Status, &t.Priority, &t.ProjectID, &t.ProjectKey, &t.ProjectName, &t.DepartmentID, &t.DepartmentName, &t.CuratorUserID, &due); err != nil {
+			return nil, fmt.Errorf("scan task by user: %w", err)
+		}
+		if due.Valid {
+			t.DueDate = &due.String
+		}
+
+		curators, err := r.taskCurators(ctx, t.ID)
+		if err != nil {
+			return nil, err
+		}
+		if len(curators) == 0 && t.CuratorUserID != 0 {
+			fallback, err := r.usersByIDs(ctx, []int64{t.CuratorUserID})
+			if err != nil {
+				return nil, err
+			}
+			curators = fallback
+		}
+		t.Curators = curators
+		if len(curators) > 0 {
+			t.CuratorName = curators[0].FullName
+		}
+
+		assignees, err := r.taskAssignees(ctx, t.ID)
+		if err != nil {
+			return nil, err
+		}
+		t.Assignees = assignees
+		result = append(result, t)
+	}
+	return result, rows.Err()
 }
 
 func (r *Repository) tasksQuery(ctx context.Context, projectID *int64, departmentID *int64) ([]models.Task, error) {
@@ -839,6 +950,52 @@ ORDER BY r.id DESC
 		var item models.Report
 		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.TargetLabel, &item.ResultStatus, &item.AuthorID, &item.AuthorName, &item.Title, &item.Resolution, &item.FileName, &item.FileSize, &item.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan report by department: %w", err)
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
+func (r *Repository) ReportsByUser(ctx context.Context, userID int64) ([]models.Report, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT DISTINCT r.id,
+       r.target_type,
+       r.target_id,
+       CASE
+         WHEN lower(r.target_type) = 'task' THEN COALESCE(t.title, 'Задача #' || r.target_id)
+         WHEN lower(r.target_type) = 'project' THEN COALESCE(pp.name, 'Проект #' || r.target_id)
+         ELSE r.target_type || ' #' || r.target_id
+       END,
+       r.result_status,
+       r.author_user_id,
+       u.full_name,
+       r.title,
+       r.resolution,
+       r.file_name,
+       r.file_size,
+       r.created_at
+FROM reports r
+JOIN users u ON u.id = r.author_user_id
+LEFT JOIN tasks t ON lower(r.target_type) = 'task' AND t.id = r.target_id
+LEFT JOIN task_assignees ta ON ta.task_id = t.id
+LEFT JOIN task_curators tc ON tc.task_id = t.id
+LEFT JOIN projects pp ON lower(r.target_type) = 'project' AND pp.id = r.target_id
+LEFT JOIN project_assignees pa ON pa.project_id = pp.id
+LEFT JOIN project_curators pc ON pc.project_id = pp.id
+WHERE (lower(r.target_type) = 'task' AND (ta.user_id = ? OR tc.user_id = ?))
+   OR (lower(r.target_type) = 'project' AND (pa.user_id = ? OR pc.user_id = ?))
+ORDER BY r.id DESC
+`, userID, userID, userID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query reports by user: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]models.Report, 0)
+	for rows.Next() {
+		var item models.Report
+		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.TargetLabel, &item.ResultStatus, &item.AuthorID, &item.AuthorName, &item.Title, &item.Resolution, &item.FileName, &item.FileSize, &item.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan report by user: %w", err)
 		}
 		result = append(result, item)
 	}
