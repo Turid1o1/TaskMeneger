@@ -74,6 +74,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
+	s.decorateUserAvatar(&user)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"message": "ok",
@@ -107,6 +108,7 @@ func (s *Server) users(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.decorateUsersAvatar(users)
 	writeJSON(w, http.StatusOK, map[string]any{"items": users})
 }
 
@@ -148,6 +150,7 @@ func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
+		s.decorateUserAvatar(&actor)
 		writeJSON(w, http.StatusOK, map[string]any{"item": actor})
 	case http.MethodPut:
 		var input models.UpdateProfileInput
@@ -168,10 +171,93 @@ func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		s.decorateUserAvatar(&user)
 		writeJSON(w, http.StatusOK, map[string]any{"message": "профиль обновлен", "user": user})
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func (s *Server) profileAvatar(w http.ResponseWriter, r *http.Request) {
+	if userID, ok := parseProfileAvatarPath(r.URL.Path); ok && r.Method == http.MethodGet {
+		avatarPath, err := s.repo.UserAvatarPath(r.Context(), userID)
+		if err != nil {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if strings.TrimSpace(avatarPath) == "" {
+			writeError(w, http.StatusNotFound, "фото профиля не загружено")
+			return
+		}
+		fd, err := os.Open(avatarPath)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "фото профиля не найдено")
+			return
+		}
+		defer fd.Close()
+		stat, err := fd.Stat()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "не удалось прочитать фото профиля")
+			return
+		}
+		http.ServeContent(w, r, filepath.Base(avatarPath), stat.ModTime(), fd)
+		return
+	}
+
+	if r.URL.Path != "/api/v1/profile/avatar" || r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
+		return
+	}
+
+	if err := r.ParseMultipartForm(6 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "ошибка multipart формы")
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "файл обязателен")
+		return
+	}
+	defer file.Close()
+	if header.Size > 5<<20 {
+		writeError(w, http.StatusBadRequest, "максимальный размер фото 5 МБ")
+		return
+	}
+	data, err := io.ReadAll(io.LimitReader(file, 5<<20+1))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "не удалось прочитать файл")
+		return
+	}
+	if int64(len(data)) > 5<<20 {
+		writeError(w, http.StatusBadRequest, "максимальный размер фото 5 МБ")
+		return
+	}
+
+	baseDir := filepath.Join(filepath.Dir(s.staticPath), "data", "avatars")
+	savedPath, _, err := s.repo.SaveAvatarFile(baseDir, header.Filename, data)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := s.repo.UpdateUserAvatar(r.Context(), actor.ID, savedPath); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	updated, err := s.repo.UserByLogin(r.Context(), actor.Login)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.decorateUserAvatar(&updated)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message":    "фото профиля обновлено",
+		"user":       updated,
+		"avatar_url": updated.AvatarURL,
+	})
 }
 
 func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
@@ -694,6 +780,23 @@ func canManageUsers(role string) bool {
 
 func isSuperRole(role string) bool {
 	return strings.EqualFold(role, "Owner") || strings.EqualFold(role, "Admin")
+}
+
+func (s *Server) decorateUserAvatar(user *models.User) {
+	if user == nil {
+		return
+	}
+	if strings.TrimSpace(user.AvatarPath) == "" {
+		user.AvatarURL = ""
+		return
+	}
+	user.AvatarURL = fmt.Sprintf("/api/v1/profile/avatar/%d", user.ID)
+}
+
+func (s *Server) decorateUsersAvatar(items []models.User) {
+	for i := range items {
+		s.decorateUserAvatar(&items[i])
+	}
 }
 
 func (s *Server) reports(w http.ResponseWriter, r *http.Request) {

@@ -134,6 +134,9 @@ CREATE TABLE IF NOT EXISTS reports (
 	if err := addColumnIfMissing(db, "users", "department_id", "INTEGER"); err != nil {
 		return fmt.Errorf("add users.department_id: %w", err)
 	}
+	if err := addColumnIfMissing(db, "users", "avatar_path", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return fmt.Errorf("add users.avatar_path: %w", err)
+	}
 	if err := addColumnIfMissing(db, "projects", "department_id", "INTEGER"); err != nil {
 		return fmt.Errorf("add projects.department_id: %w", err)
 	}

@@ -8,6 +8,8 @@ type User struct {
 	Role           string `json:"role"`
 	DepartmentID   int64  `json:"department_id"`
 	DepartmentName string `json:"department_name"`
+	AvatarPath     string `json:"-"`
+	AvatarURL      string `json:"avatar_url,omitempty"`
 }
 
 type Project struct {

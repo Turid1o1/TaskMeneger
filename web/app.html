@@ -17,7 +17,12 @@
       <a class="menu-link" id="nav-calendar" data-view="calendar" href="#">Календарь</a>
       <a class="menu-link" id="nav-settings" data-view="settings" href="#">Настройки</a>
       <a class="menu-link" href="/login.html">Выход</a>
-      <button class="nav-user" id="current-user" data-view="profile" type="button">—</button>
+      <button class="nav-user" id="current-user" data-view="profile" type="button">
+        <span class="nav-user-avatar-wrap">
+          <img class="nav-user-avatar" id="nav-user-avatar" alt="Аватар профиля">
+        </span>
+        <span id="current-user-text">—</span>
+      </button>
     </aside>
 
     <main class="workspace">
@@ -287,8 +292,15 @@
           <div class="grid-3">
             <div><label>Логин</label><input id="profile-login" disabled></div>
             <div><label>ФИО</label><input id="profile-fullname"></div>
-            <div><label>Должность</label><input id="profile-position"></div>
+            <div><label>Должность</label><select id="profile-position"></select></div>
             <div><label>Новый пароль</label><input id="profile-password" type="password" placeholder="Оставьте пустым, если без смены"></div>
+            <div>
+              <label>Фото профиля (до 5 МБ)</label>
+              <input id="profile-avatar" type="file" accept="image/*">
+            </div>
+            <div class="profile-avatar-preview-wrap">
+              <img id="profile-avatar-preview" class="profile-avatar-preview" alt="Фото профиля">
+            </div>
           </div>
           <div class="row-actions">
             <button class="btn btn-md btn-primary" id="save-profile-btn">Сохранить профиль</button>

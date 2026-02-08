@@ -42,6 +42,33 @@
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
   }
 
+  function initials(text) {
+    const parts = String(text || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return 'U';
+    if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+    return (parts[0].slice(0, 1) + parts[1].slice(0, 1)).toUpperCase();
+  }
+
+  function renderSessionUser(user) {
+    const textEl = document.getElementById('current-user-text');
+    const legacyTextEl = document.getElementById('current-user');
+    const avatarWrap = document.querySelector('.nav-user-avatar-wrap');
+    const avatarEl = document.getElementById('nav-user-avatar');
+    if (textEl) textEl.textContent = `${user.full_name}\n${user.position || ''}`;
+    if (!textEl && legacyTextEl) legacyTextEl.textContent = `${user.full_name}\n${user.position || ''}`;
+    if (!avatarWrap || !avatarEl) return;
+    if (user.avatar_url) {
+      avatarEl.src = user.avatar_url;
+      avatarEl.style.display = 'block';
+      avatarWrap.textContent = '';
+      avatarWrap.appendChild(avatarEl);
+      return;
+    }
+    avatarEl.removeAttribute('src');
+    avatarEl.style.display = 'none';
+    avatarWrap.textContent = initials(user.full_name);
+  }
+
   function actorHeaders() {
     const session = getSession();
     if (!session || !session.login) return {};
@@ -315,7 +342,7 @@
       return;
     }
 
-    document.getElementById('current-user').textContent = `${session.full_name}\n${session.position || ''}`;
+    renderSessionUser(session);
     const canManage = ['Owner', 'Admin', 'Project Manager'].includes(session.role);
     const isSuper = ['Owner', 'Admin'].includes(session.role);
     const isScopedRole = ['Member', 'Guest'].includes(session.role);
@@ -703,15 +730,16 @@
       tbody.innerHTML = '';
 
       const pageData = pagedItems('projects', projects);
-      pageData.items.forEach(p => {
+      pageData.items.forEach((p, idx) => {
         const tr = document.createElement('tr');
+        const displayID = (pagination.projects.page - 1) * pagination.projects.perPage + idx + 1;
         const baseActions = [];
         if (canManage) {
           baseActions.push(`<button class="btn btn-sm btn-secondary edit-project-btn" data-id="${p.id}">Редактировать</button>`);
           baseActions.push(`<button class="btn btn-sm btn-secondary delete-project-btn" data-id="${p.id}">Удалить</button>`);
         }
         baseActions.push(`<button class="btn btn-sm btn-success close-project-btn" data-id="${p.id}">Закрыть</button>`);
-        tr.innerHTML = `<td>${p.id}</td><td>${p.name}</td><td>${p.department_name || '—'}</td><td>${p.status || 'Активен'}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${baseActions.join(' ')}</td>`;
+        tr.innerHTML = `<td title="ID ${p.id}">${displayID}</td><td title="${escapeHTML(p.name)}">${p.name}</td><td>${p.department_name || '—'}</td><td>${p.status || 'Активен'}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${baseActions.join(' ')}</td>`;
         tbody.appendChild(tr);
       });
       renderPager('projects', projects.length);
@@ -727,9 +755,10 @@
       tbody.innerHTML = '';
 
       const pageData = pagedItems('tasks', tasks);
-      pageData.items.forEach(t => {
+      pageData.items.forEach((t, idx) => {
         const meta = priorityMeta(t.priority);
         const tr = document.createElement('tr');
+        const displayID = (pagination.tasks.page - 1) * pagination.tasks.perPage + idx + 1;
         const baseActions = [];
         if (canManage) {
           baseActions.push(`<button class="btn btn-sm btn-secondary edit-task-btn" data-id="${t.id}">Редактировать</button>`);
@@ -740,7 +769,7 @@
         const statusCell = normalizedStatus.includes('done') || normalizedStatus.includes('заверш')
           ? `<span class="status-badge status-done">Выполнено</span>`
           : statusLabel(t.status);
-        tr.innerHTML = `<td>${t.id}</td><td>${t.title}</td><td>${t.department_name || '—'}</td><td>${typeLabel(t.type)}</td><td>${statusCell}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_name || '—'}</td><td>${baseActions.join(' ')}</td>`;
+        tr.innerHTML = `<td title="ID ${t.id}">${displayID}</td><td title="${escapeHTML(t.title)}">${t.title}</td><td>${t.department_name || '—'}</td><td>${typeLabel(t.type)}</td><td>${statusCell}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_name || '—'}</td><td>${baseActions.join(' ')}</td>`;
         tbody.appendChild(tr);
       });
 
@@ -944,8 +973,19 @@
       const item = data.item || {};
       document.getElementById('profile-login').value = item.login || '';
       document.getElementById('profile-fullname').value = item.full_name || '';
-      document.getElementById('profile-position').value = item.position || '';
+      fillPositionSelect(document.getElementById('profile-position'), Number(item.department_id || session.department_id || 1), item.position || '');
       document.getElementById('profile-password').value = '';
+      document.getElementById('profile-avatar').value = '';
+      const preview = document.getElementById('profile-avatar-preview');
+      if (preview) {
+        if (item.avatar_url) {
+          preview.src = item.avatar_url;
+          preview.style.display = 'block';
+        } else {
+          preview.removeAttribute('src');
+          preview.style.display = 'none';
+        }
+      }
       document.getElementById('profile-message').textContent = '';
     }
 
@@ -955,13 +995,27 @@
         position: document.getElementById('profile-position').value.trim(),
         password: document.getElementById('profile-password').value
       };
+      const avatarFile = document.getElementById('profile-avatar')?.files?.[0];
       const msg = document.getElementById('profile-message');
       try {
         if (!payload.full_name || !payload.position) throw new Error('Заполните ФИО и должность');
+        if (avatarFile && avatarFile.size > 5 * 1024 * 1024) throw new Error('Размер фото профиля не должен превышать 5 МБ');
         const data = await api('/api/v1/profile', { method: 'PUT', body: JSON.stringify(payload) });
+        if (avatarFile) {
+          const formData = new FormData();
+          formData.set('file', avatarFile);
+          const avatarData = await apiMultipart('/api/v1/profile/avatar', formData);
+          data.user.avatar_url = avatarData.avatar_url || data.user.avatar_url || '';
+        }
         setSession(data.user);
-        document.getElementById('current-user').textContent = `${data.user.full_name}\n${data.user.position || ''}`;
+        renderSessionUser(data.user);
         document.getElementById('profile-password').value = '';
+        document.getElementById('profile-avatar').value = '';
+        const preview = document.getElementById('profile-avatar-preview');
+        if (preview && data.user.avatar_url) {
+          preview.src = data.user.avatar_url;
+          preview.style.display = 'block';
+        }
         msg.textContent = 'Профиль обновлен';
       } catch (e) {
         msg.textContent = e.message;
@@ -1168,6 +1222,18 @@
       setView(closeReportDraft.backView || 'tasks');
     });
     document.getElementById('save-profile-btn')?.addEventListener('click', saveProfile);
+    document.getElementById('profile-avatar')?.addEventListener('change', (e) => {
+      const file = e.target?.files?.[0];
+      const preview = document.getElementById('profile-avatar-preview');
+      if (!preview) return;
+      if (!file) {
+        preview.removeAttribute('src');
+        preview.style.display = 'none';
+        return;
+      }
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+    });
     document.getElementById('calendar-mode')?.addEventListener('change', () => {
       calendarFilter.mode = document.getElementById('calendar-mode').value || 'month';
       renderCalendar();

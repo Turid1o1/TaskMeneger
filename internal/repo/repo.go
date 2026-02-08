@@ -55,9 +55,12 @@ func (r *Repository) Login(ctx context.Context, in models.LoginInput) (models.Us
 	var u models.User
 	var passwordHash string
 	err := r.db.QueryRowContext(ctx, `
-SELECT id, login, full_name, position, role, password_hash
-FROM users WHERE login = ?
-`, strings.TrimSpace(in.Login)).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &passwordHash)
+SELECT u.id, u.login, u.full_name, u.position, u.role, u.password_hash,
+       COALESCE(u.department_id, 1), COALESCE(d.name, 'Отдел не указан'), COALESCE(u.avatar_path, '')
+FROM users u
+LEFT JOIN departments d ON d.id = u.department_id
+WHERE u.login = ?
+`, strings.TrimSpace(in.Login)).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &passwordHash, &u.DepartmentID, &u.DepartmentName, &u.AvatarPath)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, errors.New("неверный логин или пароль")
@@ -83,7 +86,8 @@ func (r *Repository) usersQuery(ctx context.Context, departmentID *int64) ([]mod
 	query := `
 SELECT u.id, u.login, u.full_name, u.position, u.role,
        COALESCE(u.department_id, 1),
-       COALESCE(d.name, 'Отдел не указан')
+       COALESCE(d.name, 'Отдел не указан'),
+       COALESCE(u.avatar_path, '')
 FROM users u
 LEFT JOIN departments d ON d.id = u.department_id
 `
@@ -103,7 +107,7 @@ LEFT JOIN departments d ON d.id = u.department_id
 	result := make([]models.User, 0)
 	for rows.Next() {
 		var u models.User
-		if err := rows.Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &u.DepartmentID, &u.DepartmentName); err != nil {
+		if err := rows.Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &u.DepartmentID, &u.DepartmentName, &u.AvatarPath); err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
 		}
 		result = append(result, u)
@@ -116,11 +120,12 @@ func (r *Repository) UserByID(ctx context.Context, userID int64) (models.User, e
 	err := r.db.QueryRowContext(ctx, `
 SELECT u.id, u.login, u.full_name, u.position, u.role,
        COALESCE(u.department_id, 1),
-       COALESCE(d.name, 'Отдел не указан')
+       COALESCE(d.name, 'Отдел не указан'),
+       COALESCE(u.avatar_path, '')
 FROM users u
 LEFT JOIN departments d ON d.id = u.department_id
 WHERE u.id = ?
-`, userID).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &u.DepartmentID, &u.DepartmentName)
+`, userID).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &u.DepartmentID, &u.DepartmentName, &u.AvatarPath)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, errors.New("пользователь не найден")
@@ -146,11 +151,12 @@ func (r *Repository) UserByLogin(ctx context.Context, login string) (models.User
 	err := r.db.QueryRowContext(ctx, `
 SELECT u.id, u.login, u.full_name, u.position, u.role,
        COALESCE(u.department_id, 1),
-       COALESCE(d.name, 'Отдел не указан')
+       COALESCE(d.name, 'Отдел не указан'),
+       COALESCE(u.avatar_path, '')
 FROM users u
 LEFT JOIN departments d ON d.id = u.department_id
 WHERE u.login = ?
-`, strings.TrimSpace(login)).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &u.DepartmentID, &u.DepartmentName)
+`, strings.TrimSpace(login)).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &u.DepartmentID, &u.DepartmentName, &u.AvatarPath)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, errors.New("пользователь не найден")
@@ -1116,6 +1122,49 @@ func (r *Repository) SaveReportFile(baseDir, originalName string, content []byte
 		return "", 0, fmt.Errorf("save report file: %w", err)
 	}
 	return fullPath, int64(len(content)), nil
+}
+
+func (r *Repository) SaveAvatarFile(baseDir, originalName string, content []byte) (string, int64, error) {
+	if len(content) == 0 {
+		return "", 0, nil
+	}
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		return "", 0, fmt.Errorf("create avatars dir: %w", err)
+	}
+	ext := filepath.Ext(originalName)
+	filename := fmt.Sprintf("avatar_%d%s", time.Now().UnixNano(), ext)
+	fullPath := filepath.Join(baseDir, filename)
+	if err := os.WriteFile(fullPath, content, 0o644); err != nil {
+		return "", 0, fmt.Errorf("save avatar file: %w", err)
+	}
+	return fullPath, int64(len(content)), nil
+}
+
+func (r *Repository) UpdateUserAvatar(ctx context.Context, userID int64, avatarPath string) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE users SET avatar_path = ? WHERE id = ?`, strings.TrimSpace(avatarPath), userID)
+	if err != nil {
+		return fmt.Errorf("update user avatar: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("пользователь не найден")
+	}
+	return nil
+}
+
+func (r *Repository) UserAvatarPath(ctx context.Context, userID int64) (string, error) {
+	var avatarPath string
+	err := r.db.QueryRowContext(ctx, `SELECT COALESCE(avatar_path, '') FROM users WHERE id = ?`, userID).Scan(&avatarPath)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", errors.New("пользователь не найден")
+		}
+		return "", fmt.Errorf("get avatar path: %w", err)
+	}
+	return avatarPath, nil
 }
 
 func (r *Repository) ProjectDepartmentID(ctx context.Context, projectID int64) (int64, error) {

@@ -38,6 +38,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/users", s.users)
 	s.mux.HandleFunc("/api/v1/users/", s.userRole)
 	s.mux.HandleFunc("/api/v1/profile", s.profile)
+	s.mux.HandleFunc("/api/v1/profile/avatar", s.profileAvatar)
+	s.mux.HandleFunc("/api/v1/profile/avatar/", s.profileAvatar)
 	s.mux.HandleFunc("/api/v1/departments", s.departments)
 	s.mux.HandleFunc("/api/v1/projects", s.projects)
 	s.mux.HandleFunc("/api/v1/projects/", s.projectTasks)
@@ -203,6 +205,22 @@ func parseReportFilePath(path string) (int64, bool) {
 		return 0, false
 	}
 	id, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
+func parseProfileAvatarPath(path string) (int64, bool) {
+	// /api/v1/profile/avatar/{id}
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 5 {
+		return 0, false
+	}
+	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "profile" || parts[3] != "avatar" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[4], 10, 64)
 	if err != nil {
 		return 0, false
 	}
