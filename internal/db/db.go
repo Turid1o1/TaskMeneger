@@ -142,10 +142,22 @@ CREATE TABLE IF NOT EXISTS reports (
 	if _, err := db.Exec(`
 INSERT OR IGNORE INTO departments (id, name) VALUES
   (1, 'Отдел сопровождения информационных систем'),
-  (2, 'Отдел разработки и интеграций'),
-  (3, 'Отдел поддержки инфраструктуры');
+  (2, 'Отдел поддержки и развития инфраструктуры'),
+  (3, 'Отдел технической поддержки');
 `); err != nil {
 		return fmt.Errorf("seed departments: %w", err)
+	}
+	if _, err := db.Exec(`
+UPDATE departments
+SET name = CASE id
+  WHEN 1 THEN 'Отдел сопровождения информационных систем'
+  WHEN 2 THEN 'Отдел поддержки и развития инфраструктуры'
+  WHEN 3 THEN 'Отдел технической поддержки'
+  ELSE name
+END
+WHERE id IN (1,2,3);
+`); err != nil {
+		return fmt.Errorf("normalize departments names: %w", err)
 	}
 	if _, err := db.Exec(`UPDATE users SET department_id = 1 WHERE department_id IS NULL OR department_id = 0`); err != nil {
 		return fmt.Errorf("normalize users.department_id: %w", err)

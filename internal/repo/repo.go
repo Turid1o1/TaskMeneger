@@ -149,6 +149,43 @@ WHERE id = ?
 	return nil
 }
 
+func (r *Repository) UpdateProfile(ctx context.Context, userID int64, in models.UpdateProfileInput) error {
+	if strings.TrimSpace(in.Password) == "" {
+		res, err := r.db.ExecContext(ctx, `
+UPDATE users
+SET full_name = ?, position = ?
+WHERE id = ?
+`, strings.TrimSpace(in.FullName), strings.TrimSpace(in.Position), userID)
+		if err != nil {
+			return fmt.Errorf("update profile: %w", err)
+		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("rows affected: %w", err)
+		}
+		if affected == 0 {
+			return errors.New("пользователь не найден")
+		}
+		return nil
+	}
+	res, err := r.db.ExecContext(ctx, `
+UPDATE users
+SET full_name = ?, position = ?, password_hash = ?
+WHERE id = ?
+`, strings.TrimSpace(in.FullName), strings.TrimSpace(in.Position), r.PasswordHash(in.Password), userID)
+	if err != nil {
+		return fmt.Errorf("update profile password: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("пользователь не найден")
+	}
+	return nil
+}
+
 func (r *Repository) DeleteUser(ctx context.Context, userID int64) error {
 	res, err := r.db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, userID)
 	if err != nil {
@@ -229,21 +266,24 @@ func (r *Repository) CreateProject(ctx context.Context, in models.CreateProjectI
 	}
 	defer tx.Rollback()
 
-	primaryCuratorID := in.CuratorIDs[0]
-	res, err := tx.ExecContext(ctx, `
-INSERT INTO projects (key, name, status, department_id, curator_user_id)
-VALUES (?, ?, 'Активен', ?, ?)
-`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Name), in.DepartmentID, primaryCuratorID)
+	projectID, err := nextFreeProjectID(ctx, tx)
 	if err != nil {
+		return err
+	}
+	key := strings.TrimSpace(in.Key)
+	if key == "" {
+		key = fmt.Sprintf("PRJ-%d", projectID)
+	}
+
+	primaryCuratorID := in.CuratorIDs[0]
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO projects (id, key, name, status, department_id, curator_user_id)
+VALUES (?, ?, ?, 'Активен', ?, ?)
+`, projectID, key, strings.TrimSpace(in.Name), in.DepartmentID, primaryCuratorID); err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return errors.New("ключ проекта уже существует")
 		}
 		return fmt.Errorf("insert project: %w", err)
-	}
-
-	projectID, err := res.LastInsertId()
-	if err != nil {
-		return fmt.Errorf("project id: %w", err)
 	}
 
 	for _, uid := range in.CuratorIDs {
@@ -271,11 +311,12 @@ func (r *Repository) UpdateProject(ctx context.Context, projectID int64, in mode
 	defer tx.Rollback()
 
 	primaryCuratorID := in.CuratorIDs[0]
+	key := strings.TrimSpace(in.Key)
 	res, err := tx.ExecContext(ctx, `
 UPDATE projects
-SET key = ?, name = ?, department_id = ?, curator_user_id = ?
+SET key = COALESCE(NULLIF(?, ''), key), name = ?, department_id = ?, curator_user_id = ?
 WHERE id = ?
-`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Name), in.DepartmentID, primaryCuratorID, projectID)
+`, key, strings.TrimSpace(in.Name), in.DepartmentID, primaryCuratorID, projectID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return errors.New("ключ проекта уже существует")
@@ -372,6 +413,27 @@ LIMIT 1
 	return true, nil
 }
 
+func (r *Repository) IsProjectParticipant(ctx context.Context, projectID, userID int64) (bool, error) {
+	var exists int
+	err := r.db.QueryRowContext(ctx, `
+SELECT 1
+FROM (
+  SELECT user_id FROM project_assignees WHERE project_id = ?
+  UNION
+  SELECT user_id FROM project_curators WHERE project_id = ?
+) x
+WHERE x.user_id = ?
+LIMIT 1
+`, projectID, projectID, userID).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("check project participant: %w", err)
+	}
+	return true, nil
+}
+
 func (r *Repository) Tasks(ctx context.Context, projectID *int64) ([]models.Task, error) {
 	return r.tasksQuery(ctx, projectID, nil)
 }
@@ -383,7 +445,7 @@ func (r *Repository) TasksByDepartment(ctx context.Context, departmentID int64) 
 func (r *Repository) tasksQuery(ctx context.Context, projectID *int64, departmentID *int64) ([]models.Task, error) {
 	query := `
 SELECT t.id, t.key, t.title, t.description, t.type, t.status, t.priority,
-       t.project_id, p.key, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), t.curator_user_id, t.due_date
+       t.project_id, p.key, p.name, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), t.curator_user_id, t.due_date
 FROM tasks t
 JOIN projects p ON p.id = t.project_id
 LEFT JOIN departments d ON d.id = p.department_id
@@ -413,7 +475,7 @@ LEFT JOIN departments d ON d.id = p.department_id
 	for rows.Next() {
 		var t models.Task
 		var due sql.NullString
-		if err := rows.Scan(&t.ID, &t.Key, &t.Title, &t.Description, &t.Type, &t.Status, &t.Priority, &t.ProjectID, &t.ProjectKey, &t.DepartmentID, &t.DepartmentName, &t.CuratorUserID, &due); err != nil {
+		if err := rows.Scan(&t.ID, &t.Key, &t.Title, &t.Description, &t.Type, &t.Status, &t.Priority, &t.ProjectID, &t.ProjectKey, &t.ProjectName, &t.DepartmentID, &t.DepartmentName, &t.CuratorUserID, &due); err != nil {
 			return nil, fmt.Errorf("scan task: %w", err)
 		}
 		if due.Valid {
@@ -458,12 +520,16 @@ func (r *Repository) CreateTask(ctx context.Context, in models.CreateTaskInput) 
 	if err != nil {
 		return err
 	}
+	key := strings.TrimSpace(in.Key)
+	if key == "" {
+		key = fmt.Sprintf("TSK-%d", taskID)
+	}
 
 	primaryCuratorID := in.CuratorIDs[0]
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO tasks (id, key, title, description, type, status, priority, project_id, curator_user_id, due_date)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`, taskID, strings.TrimSpace(in.Key), strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), strings.TrimSpace(in.Type), strings.TrimSpace(in.Status), strings.TrimSpace(in.Priority), in.ProjectID, primaryCuratorID, in.DueDate); err != nil {
+`, taskID, key, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), strings.TrimSpace(in.Type), strings.TrimSpace(in.Status), strings.TrimSpace(in.Priority), in.ProjectID, primaryCuratorID, in.DueDate); err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return errors.New("ключ задачи уже существует")
 		}
@@ -496,11 +562,12 @@ func (r *Repository) UpdateTask(ctx context.Context, taskID int64, in models.Upd
 	defer tx.Rollback()
 
 	primaryCuratorID := in.CuratorIDs[0]
+	key := strings.TrimSpace(in.Key)
 	res, err := tx.ExecContext(ctx, `
 UPDATE tasks
-SET key = ?, title = ?, description = ?, type = ?, status = ?, priority = ?, project_id = ?, curator_user_id = ?, due_date = ?
+SET key = COALESCE(NULLIF(?, ''), key), title = ?, description = ?, type = ?, status = ?, priority = ?, project_id = ?, curator_user_id = ?, due_date = ?
 WHERE id = ?
-`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), strings.TrimSpace(in.Type), strings.TrimSpace(in.Status), strings.TrimSpace(in.Priority), in.ProjectID, primaryCuratorID, in.DueDate, taskID)
+`, key, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), strings.TrimSpace(in.Type), strings.TrimSpace(in.Status), strings.TrimSpace(in.Priority), in.ProjectID, primaryCuratorID, in.DueDate, taskID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return errors.New("ключ задачи уже существует")
@@ -588,6 +655,69 @@ LIMIT 1
 	return true, nil
 }
 
+func (r *Repository) IsTaskParticipant(ctx context.Context, taskID, userID int64) (bool, error) {
+	var exists int
+	err := r.db.QueryRowContext(ctx, `
+SELECT 1
+FROM (
+  SELECT user_id FROM task_assignees WHERE task_id = ?
+  UNION
+  SELECT user_id FROM task_curators WHERE task_id = ?
+) x
+WHERE x.user_id = ?
+LIMIT 1
+`, taskID, taskID, userID).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("check task participant: %w", err)
+	}
+	return true, nil
+}
+
+func (r *Repository) CloseTask(ctx context.Context, taskID int64) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE tasks SET status = 'Done' WHERE id = ?`, taskID)
+	if err != nil {
+		return fmt.Errorf("close task: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("задача не найдена")
+	}
+	return nil
+}
+
+func (r *Repository) CloseProject(ctx context.Context, projectID int64) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx, `UPDATE projects SET status = 'Закрыт' WHERE id = ?`, projectID)
+	if err != nil {
+		return fmt.Errorf("close project: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("проект не найден")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE tasks SET status = 'Done' WHERE project_id = ?`, projectID); err != nil {
+		return fmt.Errorf("close project tasks: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+	return nil
+}
+
 func (r *Repository) CreateReport(ctx context.Context, in models.CreateReportInput) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -632,8 +762,8 @@ SELECT r.id,
        r.target_type,
        r.target_id,
        CASE
-         WHEN lower(r.target_type) = 'task' THEN COALESCE((SELECT t.key || ' | ' || t.title FROM tasks t WHERE t.id = r.target_id), 'Задача #' || r.target_id)
-         WHEN lower(r.target_type) = 'project' THEN COALESCE((SELECT p.key || ' | ' || p.name FROM projects p WHERE p.id = r.target_id), 'Проект #' || r.target_id)
+         WHEN lower(r.target_type) = 'task' THEN COALESCE((SELECT t.title FROM tasks t WHERE t.id = r.target_id), 'Задача #' || r.target_id)
+         WHEN lower(r.target_type) = 'project' THEN COALESCE((SELECT p.name FROM projects p WHERE p.id = r.target_id), 'Проект #' || r.target_id)
          ELSE r.target_type || ' #' || r.target_id
        END,
        r.author_user_id,
@@ -848,6 +978,32 @@ func nextFreeTaskID(ctx context.Context, tx *sql.Tx) (int64, error) {
 	}
 	if err := rows.Err(); err != nil {
 		return 0, fmt.Errorf("iterate task ids: %w", err)
+	}
+	return expected, nil
+}
+
+func nextFreeProjectID(ctx context.Context, tx *sql.Tx) (int64, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT id FROM projects ORDER BY id`)
+	if err != nil {
+		return 0, fmt.Errorf("query project ids: %w", err)
+	}
+	defer rows.Close()
+
+	var expected int64 = 1
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return 0, fmt.Errorf("scan project id: %w", err)
+		}
+		if id > expected {
+			break
+		}
+		if id == expected {
+			expected++
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("iterate project ids: %w", err)
 	}
 	return expected, nil
 }

@@ -17,7 +17,7 @@
       <a class="menu-link" data-view="calendar" href="#">Календарь</a>
       <a class="menu-link" data-view="settings" href="#">Настройки</a>
       <a class="menu-link" href="/login.html">Выход</a>
-      <div class="nav-user" id="current-user">—</div>
+      <button class="nav-user" id="current-user" data-view="profile" type="button">—</button>
     </aside>
 
     <main class="workspace">
@@ -100,13 +100,13 @@
         <div class="header-row">
           <div><h1>Календарь задач</h1><div class="sub">Выбор диапазона и режима отображения</div></div>
           <div class="toolbar">
-            <input id="calendar-from" type="date">
-            <input id="calendar-to" type="date">
             <select id="calendar-mode">
-              <option value="month">Месяц</option>
+              <option value="day">День</option>
               <option value="week">Неделя</option>
+              <option value="month">Месяц</option>
             </select>
-            <button class="btn" id="calendar-apply-btn">Фильтр</button>
+            <button class="btn" id="calendar-prev-btn">Назад</button>
+            <button class="btn" id="calendar-next-btn">Вперед</button>
           </div>
         </div>
         <div class="calendar-grid" id="calendar-grid"></div>
@@ -116,7 +116,7 @@
         <div class="header-row"><div><h1>Проекты</h1><div class="sub" id="projects-subtitle">Список проектов, редактирование и удаление</div></div><button class="btn primary" data-view="project-editor">+ Новый проект</button></div>
 
         <table class="table" id="projects-table">
-          <thead><tr><th>ID</th><th>Ключ</th><th>Название</th><th>Отдел</th><th>Статус</th><th>Кураторы</th><th>Исполнители</th><th>Действия</th></tr></thead>
+          <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Статус</th><th>Кураторы</th><th>Исполнители</th><th>Действия</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>
@@ -125,7 +125,6 @@
         <div class="header-row"><div><h1 id="project-editor-title">Создать проект</h1><div class="sub">Кураторы и исполнители: от 1 до 5</div></div><button class="btn" data-view="projects">Назад к проектам</button></div>
         <div class="editor-box">
           <div class="grid-3">
-            <div><label>Ключ</label><input id="project-key" placeholder="PRJ"></div>
             <div><label>Название</label><input id="project-name" placeholder="Название проекта"></div>
             <div><label>Отдел</label><select id="project-department"></select></div>
             <div>
@@ -146,9 +145,9 @@
       </section>
 
       <section class="view" id="view-tasks">
-        <div class="header-row"><div><h1>Задачи</h1><div class="sub" id="tasks-subtitle">Исполнитель и куратор обязательны в каждой задаче</div></div></div>
+        <div class="header-row"><div><h1>Задачи</h1><div class="sub" id="tasks-subtitle">Исполнитель и куратор обязательны в каждой задаче</div></div><button class="btn primary" data-view="task-editor">+ Новая задача</button></div>
         <table class="table" id="tasks-table">
-          <thead><tr><th>ID</th><th>Ключ</th><th>Название</th><th>Отдел</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнители</th><th>Кураторы</th><th>Проект</th><th>Действия</th></tr></thead>
+          <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнители</th><th>Кураторы</th><th>Проект</th><th>Действия</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>
@@ -158,7 +157,6 @@
 
         <div class="editor-box">
           <div class="grid-3">
-            <div><label>Ключ</label><input id="task-key" placeholder="PRJ-100"></div>
             <div><label>Название</label><input id="task-title" placeholder="Название"></div>
             <div><label>Проект</label><select id="task-project"></select></div>
             <div><label>Тип</label><select id="task-type"><option value="Task">Задача</option><option value="Bug">Ошибка</option><option value="Story">История</option><option value="Epic">Эпик</option></select></div>
@@ -250,6 +248,22 @@
           <thead><tr><th>ID</th><th>Логин</th><th>ФИО</th><th>Должность</th><th>Отдел</th><th>Роль</th><th>Статус</th><th>Действия</th></tr></thead>
           <tbody></tbody>
         </table>
+      </section>
+
+      <section class="view" id="view-profile">
+        <div class="header-row"><div><h1>Профиль сотрудника</h1><div class="sub">Изменение ФИО, должности и пароля</div></div></div>
+        <div class="editor-box">
+          <div class="grid-3">
+            <div><label>Логин</label><input id="profile-login" disabled></div>
+            <div><label>ФИО</label><input id="profile-fullname"></div>
+            <div><label>Должность</label><input id="profile-position"></div>
+            <div><label>Новый пароль</label><input id="profile-password" type="password" placeholder="Оставьте пустым, если без смены"></div>
+          </div>
+          <div class="row-actions">
+            <button class="btn primary" id="save-profile-btn">Сохранить профиль</button>
+            <span class="sub" id="profile-message"></span>
+          </div>
+        </div>
       </section>
     </main>
   </div>

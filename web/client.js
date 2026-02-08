@@ -171,6 +171,24 @@
     return v || null;
   }
 
+  function startOfDay(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  function startOfWeek(d) {
+    const date = startOfDay(d);
+    const day = date.getDay();
+    const mondayOffset = (day + 6) % 7;
+    date.setDate(date.getDate() - mondayOffset);
+    return date;
+  }
+
+  function addDays(date, days) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
   function defaultSettings() {
     return {
       general: { lang: 'ru', timezone: 'Europe/Moscow', dateFormat: 'DD.MM.YYYY' },
@@ -208,7 +226,7 @@
       return;
     }
 
-    document.getElementById('current-user').textContent = `${session.full_name} (${roleLabel(session.role)})`;
+    document.getElementById('current-user').textContent = `${session.full_name}\n${session.position || ''}`;
     const canManage = ['Owner', 'Admin', 'Project Manager'].includes(session.role);
 
     let users = [];
@@ -222,8 +240,7 @@
     let selectedDepartmentID = null;
     const calendarFilter = {
       mode: 'month',
-      from: '',
-      to: ''
+      cursor: new Date()
     };
     const settings = loadSettings();
 
@@ -264,7 +281,6 @@
     function resetProjectEditor() {
       editingProjectID = null;
       document.getElementById('project-editor-title').textContent = 'Создать проект';
-      document.getElementById('project-key').value = '';
       document.getElementById('project-name').value = '';
       document.getElementById('project-department').value = selectedDepartmentID ? String(selectedDepartmentID) : '';
       Array.from(document.getElementById('project-curators').options).forEach(o => (o.selected = false));
@@ -275,7 +291,6 @@
     function resetTaskEditor() {
       editingTaskID = null;
       document.getElementById('task-editor-title').textContent = 'Создать задачу';
-      document.getElementById('task-key').value = '';
       document.getElementById('task-title').value = '';
       document.getElementById('task-project').value = '';
       document.getElementById('task-type').value = 'Task';
@@ -374,14 +389,14 @@
           <h3 class="department-title">${dep.name}</h3>
           <div class="department-section">
             <h4>Проекты (${depProjects.length})</h4>
-            <ul class="department-list">${depProjects.slice(0, 4).map(p => `<li>${p.key} | ${p.name}</li>`).join('') || '<li>Нет проектов</li>'}</ul>
+            <ul class="department-list">${depProjects.slice(0, 4).map(p => `<li>${p.name}</li>`).join('') || '<li>Нет проектов</li>'}</ul>
             <div class="department-actions">
               <button class="btn primary open-department-projects-btn" data-department-id="${dep.id}">Открыть проекты</button>
             </div>
           </div>
           <div class="department-section">
             <h4>Задачи (${depTasks.length})</h4>
-            <ul class="department-list">${depTasks.slice(0, 4).map(t => `<li>${t.key} | ${t.title}</li>`).join('') || '<li>Нет задач</li>'}</ul>
+            <ul class="department-list">${depTasks.slice(0, 4).map(t => `<li>${t.title}</li>`).join('') || '<li>Нет задач</li>'}</ul>
             <div class="department-actions">
               <button class="btn primary open-department-tasks-btn" data-department-id="${dep.id}">Открыть задачи</button>
             </div>
@@ -397,25 +412,36 @@
       const tasksWithDate = tasks.filter(t => t.due_date);
       const mode = calendarFilter.mode;
 
+      if (mode === 'day') {
+        const dayCursor = startOfDay(calendarFilter.cursor);
+        const iso = dayCursor.toISOString().slice(0, 10);
+        const cell = document.createElement('div');
+        cell.className = 'day';
+        cell.innerHTML = `<div>${dayCursor.toLocaleDateString('ru-RU')}</div>`;
+        tasksWithDate.forEach(t => {
+          if (t.due_date !== iso) return;
+          const evt = document.createElement('span');
+          evt.className = 'evt';
+          evt.textContent = t.title;
+          cell.appendChild(evt);
+        });
+        root.appendChild(cell);
+        return;
+      }
+
       if (mode === 'week') {
-        const startBase = calendarFilter.from ? new Date(calendarFilter.from) : new Date();
-        const start = new Date(startBase.getFullYear(), startBase.getMonth(), startBase.getDate());
-        const day = start.getDay();
-        const mondayOffset = (day + 6) % 7;
-        start.setDate(start.getDate() - mondayOffset);
+        const start = startOfWeek(calendarFilter.cursor);
         for (let i = 0; i < 7; i++) {
-          const date = new Date(start);
-          date.setDate(start.getDate() + i);
+          const date = addDays(start, i);
           const iso = date.toISOString().slice(0, 10);
           const cell = document.createElement('div');
           cell.className = 'day';
           cell.innerHTML = `<div>${date.toLocaleDateString('ru-RU')}</div>`;
           tasksWithDate.forEach(t => {
             if (t.due_date !== iso) return;
-            if (calendarFilter.to && t.due_date > calendarFilter.to) return;
             const evt = document.createElement('span');
             evt.className = 'evt';
-            evt.textContent = `${t.key} ${t.title}`;
+            evt.textContent = t.title;
             cell.appendChild(evt);
           });
           root.appendChild(cell);
@@ -423,7 +449,7 @@
         return;
       }
 
-      const monthBase = calendarFilter.from ? new Date(calendarFilter.from) : new Date();
+      const monthBase = startOfDay(calendarFilter.cursor);
       const year = monthBase.getFullYear();
       const month = monthBase.getMonth();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -435,11 +461,9 @@
         cell.innerHTML = `<div>${day}</div>`;
         tasksWithDate.forEach(t => {
           if (t.due_date !== iso) return;
-          if (calendarFilter.from && t.due_date < calendarFilter.from) return;
-          if (calendarFilter.to && t.due_date > calendarFilter.to) return;
           const evt = document.createElement('span');
           evt.className = 'evt';
-          evt.textContent = `${t.key} ${t.title}`;
+          evt.textContent = t.title;
           cell.appendChild(evt);
         });
         root.appendChild(cell);
@@ -488,7 +512,7 @@
       const data = await api(`/api/v1/projects${qs}`);
       projects = data.items || [];
 
-      fillSelect(document.getElementById('task-project'), projects, 'id', (p) => `${p.key} | ${p.name}`, true);
+      fillSelect(document.getElementById('task-project'), projects, 'id', (p) => p.name, true);
       const projectSub = document.getElementById('projects-subtitle');
       if (projectSub) {
         projectSub.textContent = selectedDepartmentID
@@ -502,11 +526,13 @@
 
       projects.forEach(p => {
         const tr = document.createElement('tr');
-        const actions = canManage
-          ? `<button class="btn edit-project-btn" data-id="${p.id}">Редактировать</button>
-             <button class="btn delete-project-btn" data-id="${p.id}">Удалить</button>`
-          : '—';
-        tr.innerHTML = `<td>${p.id}</td><td>${p.key}</td><td>${p.name}</td><td>${p.department_name || '—'}</td><td>${p.status || 'Активен'}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${actions}</td>`;
+        const baseActions = [];
+        if (canManage) {
+          baseActions.push(`<button class="btn edit-project-btn" data-id="${p.id}">Редактировать</button>`);
+          baseActions.push(`<button class="btn delete-project-btn" data-id="${p.id}">Удалить</button>`);
+        }
+        baseActions.push(`<button class="btn close-project-btn" data-id="${p.id}">Закрыть проект</button>`);
+        tr.innerHTML = `<td>${p.id}</td><td>${p.name}</td><td>${p.department_name || '—'}</td><td>${p.status || 'Активен'}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${baseActions.join(' ')}</td>`;
         tbody.appendChild(tr);
       });
       refreshReportTargetSelect();
@@ -530,11 +556,13 @@
       tasks.forEach(t => {
         const meta = priorityMeta(t.priority);
         const tr = document.createElement('tr');
-        const actions = canManage
-          ? `<button class="btn edit-task-btn" data-id="${t.id}">Редактировать</button>
-             <button class="btn delete-task-btn" data-id="${t.id}">Удалить</button>`
-          : '—';
-        tr.innerHTML = `<td>${t.id}</td><td>${t.key}</td><td>${t.title}</td><td>${t.department_name || '—'}</td><td>${typeLabel(t.type)}</td><td>${statusLabel(t.status)}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_key}</td><td>${actions}</td>`;
+        const baseActions = [];
+        if (canManage) {
+          baseActions.push(`<button class="btn edit-task-btn" data-id="${t.id}">Редактировать</button>`);
+          baseActions.push(`<button class="btn delete-task-btn" data-id="${t.id}">Удалить</button>`);
+        }
+        baseActions.push(`<button class="btn close-task-btn" data-id="${t.id}">Закрыть задачу</button>`);
+        tr.innerHTML = `<td>${t.id}</td><td>${t.title}</td><td>${t.department_name || '—'}</td><td>${typeLabel(t.type)}</td><td>${statusLabel(t.status)}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_name || '—'}</td><td>${baseActions.join(' ')}</td>`;
         tbody.appendChild(tr);
       });
 
@@ -564,9 +592,9 @@
       if (!typeEl || !targetEl) return;
       const type = typeEl.value;
       if (type === 'project') {
-        fillSelect(targetEl, projects, 'id', (p) => `${p.key} | ${p.name}`, false);
+        fillSelect(targetEl, projects, 'id', (p) => p.name, false);
       } else {
-        fillSelect(targetEl, tasks, 'id', (t) => `${t.key} | ${t.title}`, false);
+        fillSelect(targetEl, tasks, 'id', (t) => t.title, false);
       }
     }
 
@@ -583,7 +611,6 @@
       if (!item) return;
       editingProjectID = item.id;
       document.getElementById('project-editor-title').textContent = `Редактирование проекта #${item.id}`;
-      document.getElementById('project-key').value = item.key;
       document.getElementById('project-name').value = item.name;
       document.getElementById('project-department').value = String(item.department_id || selectedDepartmentID || '');
       refreshStaffSelectors();
@@ -603,10 +630,8 @@
       if (!item) return;
       editingTaskID = item.id;
       document.getElementById('task-editor-title').textContent = `Редактирование задачи #${item.id}`;
-      document.getElementById('task-key').value = item.key;
       document.getElementById('task-title').value = item.title;
-      const p = projects.find(pr => pr.key === item.project_key);
-      document.getElementById('task-project').value = p ? String(p.id) : '';
+      document.getElementById('task-project').value = item.project_id ? String(item.project_id) : '';
       document.getElementById('task-type').value = item.type;
       document.getElementById('task-status').value = item.status;
       document.getElementById('task-priority').value = item.priority;
@@ -641,7 +666,7 @@
       const curatorIDs = selectedIDs('project-curators');
       const assigneeIDs = selectedIDs('project-assignees');
       const payload = {
-        key: document.getElementById('project-key').value.trim(),
+        key: '',
         name: document.getElementById('project-name').value.trim(),
         department_id: Number(document.getElementById('project-department').value || selectedDepartmentID || 0),
         curator_ids: curatorIDs,
@@ -650,7 +675,7 @@
       const msg = document.getElementById('project-editor-message');
       try {
         if (!canManage) throw new Error('Недостаточно прав');
-        if (!payload.key || !payload.name || !payload.department_id) throw new Error('Заполните поля проекта');
+        if (!payload.name || !payload.department_id) throw new Error('Заполните поля проекта');
         if (curatorIDs.length < 1 || curatorIDs.length > 5) throw new Error('Выберите от 1 до 5 кураторов');
         if (assigneeIDs.length < 1 || assigneeIDs.length > 5) throw new Error('Выберите от 1 до 5 исполнителей');
         if (editingProjectID) {
@@ -670,7 +695,7 @@
       const assigneeIDs = Array.from(document.getElementById('task-assignees').selectedOptions).map(o => Number(o.value));
       const curatorIDs = Array.from(document.getElementById('task-curators').selectedOptions).map(o => Number(o.value));
       const payload = {
-        key: document.getElementById('task-key').value.trim(),
+        key: '',
         title: document.getElementById('task-title').value.trim(),
         description: document.getElementById('task-description').value.trim(),
         type: document.getElementById('task-type').value,
@@ -684,7 +709,7 @@
       const msg = document.getElementById('task-editor-message');
       try {
         if (!canManage) throw new Error('Недостаточно прав');
-        if (!payload.key || !payload.title || !payload.project_id) throw new Error('Заполните обязательные поля задачи');
+        if (!payload.title || !payload.project_id) throw new Error('Заполните обязательные поля задачи');
         if (curatorIDs.length < 1 || curatorIDs.length > 5) throw new Error('Выберите от 1 до 5 кураторов');
         if (assigneeIDs.length < 1 || assigneeIDs.length > 5) throw new Error('Выберите от 1 до 5 исполнителей');
         if (editingTaskID) {
@@ -718,6 +743,35 @@
         await loadUsers();
         resetUserEditor();
       } catch (e) { msg.textContent = e.message; }
+    }
+
+    async function loadProfile() {
+      const data = await api('/api/v1/profile');
+      const item = data.item || {};
+      document.getElementById('profile-login').value = item.login || '';
+      document.getElementById('profile-fullname').value = item.full_name || '';
+      document.getElementById('profile-position').value = item.position || '';
+      document.getElementById('profile-password').value = '';
+      document.getElementById('profile-message').textContent = '';
+    }
+
+    async function saveProfile() {
+      const payload = {
+        full_name: document.getElementById('profile-fullname').value.trim(),
+        position: document.getElementById('profile-position').value.trim(),
+        password: document.getElementById('profile-password').value
+      };
+      const msg = document.getElementById('profile-message');
+      try {
+        if (!payload.full_name || !payload.position) throw new Error('Заполните ФИО и должность');
+        const data = await api('/api/v1/profile', { method: 'PUT', body: JSON.stringify(payload) });
+        setSession(data.user);
+        document.getElementById('current-user').textContent = `${data.user.full_name}\n${data.user.position || ''}`;
+        document.getElementById('profile-password').value = '';
+        msg.textContent = 'Профиль обновлен';
+      } catch (e) {
+        msg.textContent = e.message;
+      }
     }
 
     async function saveReport() {
@@ -769,6 +823,18 @@
       await loadTasks();
     }
 
+    async function closeTask(id) {
+      await api(`/api/v1/tasks/${id}/close`, { method: 'PATCH', body: JSON.stringify({}) });
+      await loadTasks();
+      await loadProjects();
+    }
+
+    async function closeProject(id) {
+      await api(`/api/v1/projects/${id}/close`, { method: 'PATCH', body: JSON.stringify({}) });
+      await loadProjects();
+      await loadTasks();
+    }
+
     async function deleteUser(id) {
       if (!canManage) return;
       if (!confirm('Удалить пользователя?')) return;
@@ -786,9 +852,16 @@
           resetProjectEditor();
           refreshStaffSelectors();
         }
+        if (viewBtn.dataset.view === 'task-editor') {
+          resetTaskEditor();
+          refreshStaffSelectors();
+        }
         setView(viewBtn.dataset.view);
         if (viewBtn.dataset.view === 'reports') {
           refreshReportTargetSelect();
+        }
+        if (viewBtn.dataset.view === 'profile') {
+          try { await loadProfile(); } catch (err) { alert(err.message); }
         }
       }
 
@@ -821,6 +894,16 @@
         try { await deleteTask(deleteTaskBtn.dataset.id); } catch (err) { alert(err.message); }
       }
 
+      const closeTaskBtn = e.target.closest('.close-task-btn');
+      if (closeTaskBtn) {
+        try { await closeTask(closeTaskBtn.dataset.id); } catch (err) { alert(err.message); }
+      }
+
+      const closeProjectBtn = e.target.closest('.close-project-btn');
+      if (closeProjectBtn) {
+        try { await closeProject(closeProjectBtn.dataset.id); } catch (err) { alert(err.message); }
+      }
+
       const deleteUserBtn = e.target.closest('.delete-user-btn');
       if (deleteUserBtn) {
         try { await deleteUser(deleteUserBtn.dataset.id); } catch (err) { alert(err.message); }
@@ -838,10 +921,21 @@
     document.getElementById('save-settings-notify-btn')?.addEventListener('click', saveNotifySettings);
     document.getElementById('report-target-type')?.addEventListener('change', refreshReportTargetSelect);
     document.getElementById('save-report-btn')?.addEventListener('click', saveReport);
-    document.getElementById('calendar-apply-btn')?.addEventListener('click', () => {
-      calendarFilter.from = document.getElementById('calendar-from').value || '';
-      calendarFilter.to = document.getElementById('calendar-to').value || '';
+    document.getElementById('save-profile-btn')?.addEventListener('click', saveProfile);
+    document.getElementById('calendar-mode')?.addEventListener('change', () => {
       calendarFilter.mode = document.getElementById('calendar-mode').value || 'month';
+      renderCalendar();
+    });
+    document.getElementById('calendar-prev-btn')?.addEventListener('click', () => {
+      if (calendarFilter.mode === 'day') calendarFilter.cursor = addDays(calendarFilter.cursor, -1);
+      else if (calendarFilter.mode === 'week') calendarFilter.cursor = addDays(calendarFilter.cursor, -7);
+      else calendarFilter.cursor = new Date(calendarFilter.cursor.getFullYear(), calendarFilter.cursor.getMonth() - 1, 1);
+      renderCalendar();
+    });
+    document.getElementById('calendar-next-btn')?.addEventListener('click', () => {
+      if (calendarFilter.mode === 'day') calendarFilter.cursor = addDays(calendarFilter.cursor, 1);
+      else if (calendarFilter.mode === 'week') calendarFilter.cursor = addDays(calendarFilter.cursor, 7);
+      else calendarFilter.cursor = new Date(calendarFilter.cursor.getFullYear(), calendarFilter.cursor.getMonth() + 1, 1);
       renderCalendar();
     });
     document.getElementById('clear-department-filter-btn')?.addEventListener('click', async () => {

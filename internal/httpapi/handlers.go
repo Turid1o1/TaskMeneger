@@ -95,6 +95,39 @@ func (s *Server) departments(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
+func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, http.StatusOK, map[string]any{"item": actor})
+	case http.MethodPut:
+		var input models.UpdateProfileInput
+		if err := decodeJSON(r, &input); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if strings.TrimSpace(input.FullName) == "" || strings.TrimSpace(input.Position) == "" {
+			writeError(w, http.StatusBadRequest, "заполните ФИО и должность")
+			return
+		}
+		if err := s.repo.UpdateProfile(r.Context(), actor.ID, input); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		user, err := s.repo.UserByLogin(r.Context(), actor.Login)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"message": "профиль обновлен", "user": user})
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
 func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 	if userID, ok := parseUserRolePath(r.URL.Path); ok {
 		if r.Method != http.MethodPatch {
@@ -188,7 +221,7 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Key == "" || input.Name == "" || input.DepartmentID <= 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
+		if input.Name == "" || input.DepartmentID <= 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
 			return
 		}
@@ -213,6 +246,37 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
+	if projectID, ok := parseProjectClosePath(r.URL.Path); ok {
+		if r.Method != http.MethodPatch {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
+		isManager := strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") || strings.EqualFold(actor.Role, "Project Manager")
+		allowed := isManager
+		if !allowed {
+			var err error
+			allowed, err = s.repo.IsProjectParticipant(r.Context(), projectID, actor.ID)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "закрыть проект может куратор или исполнитель")
+			return
+		}
+		if err := s.repo.CloseProject(r.Context(), projectID); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "проект закрыт"})
+		return
+	}
+
 	if projectID, ok := parseProjectID(r.URL.Path); ok {
 		if r.Method != http.MethodGet {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -244,7 +308,7 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Key == "" || input.Name == "" || input.DepartmentID <= 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
+		if input.Name == "" || input.DepartmentID <= 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
 			return
 		}
@@ -302,7 +366,7 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Key == "" || input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
+		if input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
 			return
 		}
@@ -332,6 +396,37 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
+	if taskID, ok := parseTaskClosePath(r.URL.Path); ok {
+		if r.Method != http.MethodPatch {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
+		isManager := strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") || strings.EqualFold(actor.Role, "Project Manager")
+		allowed := isManager
+		if !allowed {
+			var err error
+			allowed, err = s.repo.IsTaskParticipant(r.Context(), taskID, actor.ID)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "закрыть задачу может куратор или исполнитель")
+			return
+		}
+		if err := s.repo.CloseTask(r.Context(), taskID); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "задача закрыта"})
+		return
+	}
+
 	taskID, ok := parseTaskEntityPath(r.URL.Path)
 	if !ok {
 		writeError(w, http.StatusNotFound, "not found")
@@ -349,7 +444,7 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Key == "" || input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
+		if input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
 			return
 		}
@@ -385,15 +480,8 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) requireActorRole(w http.ResponseWriter, r *http.Request, allowed ...string) bool {
-	actorLogin := strings.TrimSpace(r.Header.Get("X-Actor-Login"))
-	if actorLogin == "" {
-		writeError(w, http.StatusUnauthorized, "нужен заголовок X-Actor-Login")
-		return false
-	}
-
-	actor, err := s.repo.UserByLogin(r.Context(), actorLogin)
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, "пользователь не найден")
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
 		return false
 	}
 
@@ -405,6 +493,20 @@ func (s *Server) requireActorRole(w http.ResponseWriter, r *http.Request, allowe
 
 	writeError(w, http.StatusForbidden, "недостаточно прав")
 	return false
+}
+
+func (s *Server) actorFromRequest(w http.ResponseWriter, r *http.Request) (models.User, bool) {
+	actorLogin := strings.TrimSpace(r.Header.Get("X-Actor-Login"))
+	if actorLogin == "" {
+		writeError(w, http.StatusUnauthorized, "нужен заголовок X-Actor-Login")
+		return models.User{}, false
+	}
+	actor, err := s.repo.UserByLogin(r.Context(), actorLogin)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "пользователь не найден")
+		return models.User{}, false
+	}
+	return actor, true
 }
 
 func isAllowedRole(role string) bool {
@@ -459,16 +561,16 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request) {
 			var allowed bool
 			switch targetType {
 			case "task":
-				allowed, err = s.repo.IsTaskAssignee(r.Context(), targetID, actor.ID)
+				allowed, err = s.repo.IsTaskParticipant(r.Context(), targetID, actor.ID)
 			case "project":
-				allowed, err = s.repo.IsProjectAssignee(r.Context(), targetID, actor.ID)
+				allowed, err = s.repo.IsProjectParticipant(r.Context(), targetID, actor.ID)
 			}
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
 			if !allowed {
-				writeError(w, http.StatusForbidden, "только назначенный исполнитель может закрыть через отчет")
+				writeError(w, http.StatusForbidden, "закрыть через отчет может куратор или исполнитель")
 				return
 			}
 		}

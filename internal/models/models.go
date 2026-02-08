@@ -35,6 +35,7 @@ type Task struct {
 	Priority      string  `json:"priority"`
 	ProjectID     int64   `json:"project_id"`
 	ProjectKey    string  `json:"project_key"`
+	ProjectName   string  `json:"project_name"`
 	DepartmentID  int64   `json:"department_id"`
 	DepartmentName string `json:"department_name"`
 	CuratorUserID int64   `json:"curator_user_id"`
@@ -96,6 +97,12 @@ type UpdateUserInput struct {
 	Position     string `json:"position"`
 	Role         string `json:"role"`
 	DepartmentID int64  `json:"department_id"`
+}
+
+type UpdateProfileInput struct {
+	FullName string `json:"full_name"`
+	Position string `json:"position"`
+	Password string `json:"password"`
 }
 
 type UpdateTaskInput struct {

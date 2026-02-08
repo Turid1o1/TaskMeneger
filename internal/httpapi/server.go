@@ -37,6 +37,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/auth/login", s.login)
 	s.mux.HandleFunc("/api/v1/users", s.users)
 	s.mux.HandleFunc("/api/v1/users/", s.userRole)
+	s.mux.HandleFunc("/api/v1/profile", s.profile)
 	s.mux.HandleFunc("/api/v1/departments", s.departments)
 	s.mux.HandleFunc("/api/v1/projects", s.projects)
 	s.mux.HandleFunc("/api/v1/projects/", s.projectTasks)
@@ -87,6 +88,22 @@ func parseProjectID(path string) (int64, bool) {
 		return 0, false
 	}
 	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "projects" || parts[4] != "tasks" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
+func parseProjectClosePath(path string) (int64, bool) {
+	// /api/v1/projects/{id}/close
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 5 {
+		return 0, false
+	}
+	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "projects" || parts[4] != "close" {
 		return 0, false
 	}
 	id, err := strconv.ParseInt(parts[3], 10, 64)
@@ -151,6 +168,22 @@ func parseTaskEntityPath(path string) (int64, bool) {
 		return 0, false
 	}
 	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "tasks" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
+func parseTaskClosePath(path string) (int64, bool) {
+	// /api/v1/tasks/{id}/close
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 5 {
+		return 0, false
+	}
+	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "tasks" || parts[4] != "close" {
 		return 0, false
 	}
 	id, err := strconv.ParseInt(parts[3], 10, 64)
