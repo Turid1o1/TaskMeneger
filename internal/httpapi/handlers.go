@@ -423,12 +423,12 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
-		ok, err := s.repo.UserIDsBelongToDepartment(r.Context(), allIDs, input.DepartmentID)
+		teamInDepartment, err := s.repo.UserIDsBelongToDepartment(r.Context(), allIDs, input.DepartmentID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if !ok {
+		if !teamInDepartment {
 			writeError(w, http.StatusBadRequest, "кураторы и исполнители должны быть из выбранного отдела")
 			return
 		}
@@ -623,12 +623,12 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
-		ok, err := s.repo.UserIDsBelongToDepartment(r.Context(), allIDs, departmentID)
+		teamInDepartment, err := s.repo.UserIDsBelongToDepartment(r.Context(), allIDs, departmentID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if !ok {
+		if !teamInDepartment {
 			writeError(w, http.StatusBadRequest, "кураторы и исполнители должны быть из отдела проекта")
 			return
 		}
@@ -709,12 +709,12 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
-		ok, err := s.repo.UserIDsBelongToDepartment(r.Context(), allIDs, departmentID)
+		teamInDepartment, err := s.repo.UserIDsBelongToDepartment(r.Context(), allIDs, departmentID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if !ok {
+		if !teamInDepartment {
 			writeError(w, http.StatusBadRequest, "кураторы и исполнители должны быть из отдела проекта")
 			return
 		}

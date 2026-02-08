@@ -780,16 +780,17 @@
 
     async function loadReports() {
       const data = await api('/api/v1/reports');
-      reports = data.items || [];
+      reports = (data.items || []).slice().sort((a, b) => Number(a.id) - Number(b.id));
       const tbody = document.querySelector('#reports-table tbody');
       if (!tbody) return;
       tbody.innerHTML = '';
       const pageData = pagedItems('reports', reports);
-      pageData.items.forEach(r => {
+      pageData.items.forEach((r, idx) => {
         const tr = document.createElement('tr');
+        const displayID = (pagination.reports.page - 1) * pagination.reports.perPage + idx + 1;
         const fileCell = r.file_name ? `<a href="/api/v1/reports/${r.id}/file" target="_blank">${r.file_name}</a>` : '—';
         const kind = String(r.target_type).toLowerCase() === 'project' ? 'Проект' : 'Задача';
-        tr.innerHTML = `<td>${r.id}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.result_status || 'Завершено')}</td><td>${escapeHTML(r.author_name)}</td><td><div class="report-title-cell"><div class="report-title-text" title="${escapeHTML(r.title)}">${escapeHTML(r.title)}</div><button class="btn btn-sm btn-secondary toggle-report-btn" data-id="${r.id}">Подробнее</button></div></td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td>`;
+        tr.innerHTML = `<td title="ID ${r.id}">${displayID}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.result_status || 'Завершено')}</td><td>${escapeHTML(r.author_name)}</td><td><div class="report-title-cell"><div class="report-title-text" title="${escapeHTML(r.title)}">${escapeHTML(r.title)}</div><button class="btn btn-sm btn-secondary toggle-report-btn" data-id="${r.id}">Подробнее</button></div></td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td>`;
         tbody.appendChild(tr);
 
         const detailsTr = document.createElement('tr');
