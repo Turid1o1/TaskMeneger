@@ -365,12 +365,13 @@
       tbody.innerHTML = '';
 
       tasks.forEach(t => {
+        const meta = priorityMeta(t.priority);
         const tr = document.createElement('tr');
         const actions = canManage
           ? `<button class="btn edit-task-btn" data-id="${t.id}">Редактировать</button>
              <button class="btn delete-task-btn" data-id="${t.id}">Удалить</button>`
           : '—';
-        tr.innerHTML = `<td>${t.id}</td><td>${t.key}</td><td>${t.title}</td><td>${t.type}</td><td>${t.status}</td><td>${t.priority}</td><td>${assigneesText(t)}</td><td>${t.curator_name}</td><td>${t.project_key}</td><td>${actions}</td>`;
+        tr.innerHTML = `<td>${t.id}</td><td>${t.key}</td><td>${t.title}</td><td>${t.type}</td><td>${t.status}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${t.curator_name}</td><td>${t.project_key}</td><td>${actions}</td>`;
         tbody.appendChild(tr);
       });
 
