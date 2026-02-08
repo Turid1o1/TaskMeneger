@@ -27,9 +27,9 @@
             <h1>Отделы</h1>
           </div>
           <div class="toolbar">
-            <button class="btn primary" data-view="project-editor">+ Новый проект</button>
-            <button class="btn primary" data-view="task-editor">+ Новое задание</button>
-            <button class="btn" id="clear-department-filter-btn">Все отделы</button>
+            <button class="btn btn-md btn-primary" data-view="project-editor">+ Новый проект</button>
+            <button class="btn btn-md btn-primary" data-view="task-editor">+ Новое задание</button>
+            <button class="btn btn-md btn-secondary" id="clear-department-filter-btn">Все отделы</button>
           </div>
         </div>
 
@@ -49,7 +49,7 @@
       </section>
 
       <section class="view" id="view-settings-general">
-        <div class="header-row"><div><h1>Общие настройки</h1><div class="sub">Язык, часовой пояс, формат даты</div></div><button class="btn" data-view="settings">Назад</button></div>
+        <div class="header-row"><div><h1>Общие настройки</h1><div class="sub">Язык, часовой пояс, формат даты</div></div><button class="btn btn-md btn-secondary" data-view="settings">Назад</button></div>
         <div class="editor-box">
           <div class="grid-3">
             <div><label>Язык</label><select id="settings-lang"><option value="ru">Русский</option><option value="en">English</option></select></div>
@@ -57,14 +57,14 @@
             <div><label>Формат даты</label><select id="settings-date-format"><option value="DD.MM.YYYY">DD.MM.YYYY</option><option value="YYYY-MM-DD">YYYY-MM-DD</option></select></div>
           </div>
           <div class="row-actions">
-            <button class="btn primary" id="save-settings-general-btn">Сохранить</button>
+            <button class="btn btn-md btn-primary" id="save-settings-general-btn">Сохранить</button>
             <span class="sub" id="settings-general-message"></span>
           </div>
         </div>
       </section>
 
       <section class="view" id="view-settings-security">
-        <div class="header-row"><div><h1>Безопасность</h1><div class="sub">2FA, политика пароля, лимит попыток, сессия</div></div><button class="btn" data-view="settings">Назад</button></div>
+        <div class="header-row"><div><h1>Безопасность</h1><div class="sub">2FA, политика пароля, лимит попыток, сессия</div></div><button class="btn btn-md btn-secondary" data-view="settings">Назад</button></div>
         <div class="editor-box">
           <div class="grid-3">
             <div><label>2FA</label><select id="settings-2fa"><option value="off">Выключено</option><option value="on">Включено</option></select></div>
@@ -73,14 +73,14 @@
             <div><label>Время сессии (мин)</label><input id="settings-session-minutes" type="number" min="5" max="1440" value="60"></div>
           </div>
           <div class="row-actions">
-            <button class="btn primary" id="save-settings-security-btn">Сохранить</button>
+            <button class="btn btn-md btn-primary" id="save-settings-security-btn">Сохранить</button>
             <span class="sub" id="settings-security-message"></span>
           </div>
         </div>
       </section>
 
       <section class="view" id="view-settings-notify">
-        <div class="header-row"><div><h1>Уведомления</h1><div class="sub">Email, в приложении, дайджест, просрочки</div></div><button class="btn" data-view="settings">Назад</button></div>
+        <div class="header-row"><div><h1>Уведомления</h1><div class="sub">Email, в приложении, дайджест, просрочки</div></div><button class="btn btn-md btn-secondary" data-view="settings">Назад</button></div>
         <div class="editor-box">
           <div class="grid-3">
             <div><label>Email</label><select id="settings-email"><option value="on">Включено</option><option value="off">Выключено</option></select></div>
@@ -89,7 +89,7 @@
             <div><label>Просрочки</label><select id="settings-overdue"><option value="on">Уведомлять</option><option value="off">Не уведомлять</option></select></div>
           </div>
           <div class="row-actions">
-            <button class="btn primary" id="save-settings-notify-btn">Сохранить</button>
+            <button class="btn btn-md btn-primary" id="save-settings-notify-btn">Сохранить</button>
             <span class="sub" id="settings-notify-message"></span>
           </div>
         </div>
@@ -115,7 +115,7 @@
       </section>
 
       <section class="view" id="view-projects">
-        <div class="header-row"><div><h1>Проекты</h1></div><div class="toolbar"><button class="btn primary" data-view="project-editor">+ Новый проект</button><button class="btn" data-view="dashboard">Назад</button></div></div>
+        <div class="header-row"><div><h1>Проекты</h1></div><div class="toolbar"><button class="btn btn-md btn-primary" data-view="project-editor">+ Новый проект</button><button class="btn btn-md btn-secondary" data-view="dashboard">Назад</button></div></div>
 
         <table class="table" id="projects-table">
           <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Статус</th><th>Кураторы</th><th>Исполнители</th><th>Действия</th></tr></thead>
@@ -129,7 +129,7 @@
       </section>
 
       <section class="view" id="view-project-editor">
-        <div class="header-row"><div><h1 id="project-editor-title">Создать проект</h1><div class="sub">Кураторы и исполнители: от 1 до 5</div></div><button class="btn" data-view="projects">Назад к проектам</button></div>
+        <div class="header-row"><div><h1 id="project-editor-title">Создать проект</h1><div class="sub">Кураторы и исполнители: от 1 до 5</div></div><button class="btn btn-md btn-secondary" data-view="projects">Назад к проектам</button></div>
         <div class="editor-box">
           <div class="grid-3">
             <div><label>Название</label><input id="project-name" placeholder="Название проекта"></div>
@@ -144,15 +144,15 @@
             </div>
           </div>
           <div class="row-actions">
-            <button class="btn primary" id="save-project-btn">Сохранить</button>
-            <button class="btn" id="reset-project-btn">Очистить</button>
+            <button class="btn btn-md btn-primary" id="save-project-btn">Сохранить</button>
+            <button class="btn btn-md btn-secondary" id="reset-project-btn">Очистить</button>
             <span class="sub" id="project-editor-message"></span>
           </div>
         </div>
       </section>
 
       <section class="view" id="view-tasks">
-        <div class="header-row"><div><h1>Задачи</h1></div><div class="toolbar"><button class="btn primary" data-view="task-editor">+ Новая задача</button><button class="btn" data-view="dashboard">Назад</button></div></div>
+        <div class="header-row"><div><h1>Задачи</h1></div><div class="toolbar"><button class="btn btn-md btn-primary" data-view="task-editor">+ Новая задача</button><button class="btn btn-md btn-secondary" data-view="dashboard">Назад</button></div></div>
         <table class="table" id="tasks-table">
           <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнители</th><th>Кураторы</th><th>Проект</th><th>Действия</th></tr></thead>
           <tbody></tbody>
@@ -180,15 +180,15 @@
           </div>
           <div><label>Описание</label><textarea id="task-description" placeholder="Описание"></textarea></div>
           <div class="row-actions">
-            <button class="btn primary" id="save-task-btn">Сохранить</button>
-            <button class="btn" id="reset-task-btn">Очистить</button>
+            <button class="btn btn-md btn-primary" id="save-task-btn">Сохранить</button>
+            <button class="btn btn-md btn-secondary" id="reset-task-btn">Очистить</button>
             <span class="sub" id="task-editor-message"></span>
           </div>
         </div>
       </section>
 
       <section class="view" id="view-reports">
-        <div class="header-row"><div><h1>Отчеты</h1></div><button class="btn" data-view="dashboard">Назад</button></div>
+        <div class="header-row"><div><h1>Отчеты</h1></div><button class="btn btn-md btn-secondary" data-view="dashboard">Назад</button></div>
 
         <table class="table" id="reports-table">
           <thead><tr><th>ID</th><th>Тип</th><th>Объект</th><th>Результат</th><th>Автор</th><th>Заголовок</th><th>Файл</th><th>Дата</th><th>Детали</th></tr></thead>
@@ -204,7 +204,7 @@
       <section class="view" id="view-close-report">
         <div class="header-row">
           <div><h1>Закрытие с отчетом</h1></div>
-          <button class="btn" id="close-report-back-btn">Назад</button>
+          <button class="btn btn-md btn-secondary" id="close-report-back-btn">Назад</button>
         </div>
         <div class="editor-box">
           <div class="grid-3">
@@ -243,14 +243,14 @@
             <textarea id="close-resolution" placeholder="Опишите, как был решен вопрос"></textarea>
           </div>
           <div class="row-actions">
-            <button class="btn primary" id="save-close-report-btn">Сохранить отчет</button>
+            <button class="btn btn-md btn-primary" id="save-close-report-btn">Сохранить отчет</button>
             <span class="sub" id="close-report-message"></span>
           </div>
         </div>
       </section>
 
       <section class="view" id="view-users">
-        <div class="header-row"><div><h1>Пользователи</h1><div class="sub">Редактирование и удаление пользователей</div></div><button class="btn" data-view="settings">Назад</button></div>
+        <div class="header-row"><div><h1>Пользователи</h1><div class="sub">Редактирование и удаление пользователей</div></div><button class="btn btn-md btn-secondary" data-view="settings">Назад</button></div>
 
         <div class="editor-box">
           <h3 id="user-editor-title">Редактирование пользователя</h3>
@@ -262,9 +262,9 @@
             <div><label>Роль</label><select id="user-role"><option value="Owner">Владелец</option><option value="Admin">Администратор</option><option value="Project Manager">Менеджер проекта</option><option value="Member">Сотрудник</option><option value="Guest">Гость</option></select></div>
           </div>
           <div class="row-actions">
-            <button class="btn primary" id="save-user-btn">Сохранить</button>
-            <button class="btn" id="reset-user-btn">Очистить</button>
-            <a class="btn" href="/register.html">Новая регистрация</a>
+            <button class="btn btn-md btn-primary" id="save-user-btn">Сохранить</button>
+            <button class="btn btn-md btn-secondary" id="reset-user-btn">Очистить</button>
+            <a class="btn btn-md btn-secondary" href="/register.html">Новая регистрация</a>
             <span class="sub" id="user-editor-message"></span>
           </div>
         </div>
@@ -285,7 +285,7 @@
             <div><label>Новый пароль</label><input id="profile-password" type="password" placeholder="Оставьте пустым, если без смены"></div>
           </div>
           <div class="row-actions">
-            <button class="btn primary" id="save-profile-btn">Сохранить профиль</button>
+            <button class="btn btn-md btn-primary" id="save-profile-btn">Сохранить профиль</button>
             <span class="sub" id="profile-message"></span>
           </div>
         </div>

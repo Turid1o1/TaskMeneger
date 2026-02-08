@@ -135,6 +135,15 @@
       .replaceAll("'", '&#39;');
   }
 
+  function ellipsisListHTML(items, valueFn, emptyLabel) {
+    if (!items || !items.length) return `<li>${emptyLabel}</li>`;
+    return items.map((item) => {
+      const raw = valueFn(item) || '';
+      const safe = escapeHTML(raw);
+      return `<li><span class="department-item-text" title="${safe}">${safe}</span></li>`;
+    }).join('');
+  }
+
   function priorityMeta(priority) {
     const p = String(priority || '').toLowerCase();
     if (p.includes('high') || p.includes('critical') || p.includes('выс')) {
@@ -452,16 +461,16 @@
           <h3 class="department-title">${dep.name}</h3>
           <div class="department-section">
             <h4>Проекты (${depProjects.length})</h4>
-            <ul class="department-list">${depProjects.slice(0, 4).map(p => `<li>${p.name}</li>`).join('') || '<li>Нет проектов</li>'}</ul>
+            <ul class="department-list">${ellipsisListHTML(depProjects.slice(0, 4), (p) => p.name, 'Нет проектов')}</ul>
             <div class="department-actions">
-              <button class="btn primary open-department-projects-btn" data-department-id="${dep.id}">Открыть проекты</button>
+              <button class="btn btn-md btn-primary open-department-projects-btn" data-department-id="${dep.id}">Открыть проекты</button>
             </div>
           </div>
           <div class="department-section">
             <h4>Задачи (${depTasks.length})</h4>
-            <ul class="department-list">${depTasks.slice(0, 4).map(t => `<li>${t.title}</li>`).join('') || '<li>Нет задач</li>'}</ul>
+            <ul class="department-list">${ellipsisListHTML(depTasks.slice(0, 4), (t) => t.title, 'Нет задач')}</ul>
             <div class="department-actions">
-              <button class="btn primary open-department-tasks-btn" data-department-id="${dep.id}">Открыть задачи</button>
+              <button class="btn btn-md btn-primary open-department-tasks-btn" data-department-id="${dep.id}">Открыть задачи</button>
             </div>
           </div>`;
         root.appendChild(card);
@@ -576,8 +585,8 @@
       users.forEach(u => {
         const tr = document.createElement('tr');
         const actions = canManage
-          ? `<button class="btn edit-user-btn" data-id="${u.id}">Редактировать</button>
-             <button class="btn delete-user-btn" data-id="${u.id}">Удалить</button>`
+          ? `<button class="btn btn-sm btn-secondary edit-user-btn" data-id="${u.id}">Редактировать</button>
+             <button class="btn btn-sm btn-secondary delete-user-btn" data-id="${u.id}">Удалить</button>`
           : '—';
         tr.innerHTML = `<td>${u.id}</td><td>${u.login}</td><td>${u.full_name}</td><td>${u.position}</td><td>${u.department_name || '—'}</td><td>${roleLabel(u.role)}</td><td>Активен</td><td>${actions}</td>`;
         tbody.appendChild(tr);
@@ -600,10 +609,10 @@
         const tr = document.createElement('tr');
         const baseActions = [];
         if (canManage) {
-          baseActions.push(`<button class="btn edit-project-btn" data-id="${p.id}">Редактировать</button>`);
-          baseActions.push(`<button class="btn delete-project-btn" data-id="${p.id}">Удалить</button>`);
+          baseActions.push(`<button class="btn btn-sm btn-secondary edit-project-btn" data-id="${p.id}">Редактировать</button>`);
+          baseActions.push(`<button class="btn btn-sm btn-secondary delete-project-btn" data-id="${p.id}">Удалить</button>`);
         }
-        baseActions.push(`<button class="btn success close-project-btn" data-id="${p.id}">Закрыть</button>`);
+        baseActions.push(`<button class="btn btn-sm btn-success close-project-btn" data-id="${p.id}">Закрыть</button>`);
         tr.innerHTML = `<td>${p.id}</td><td>${p.name}</td><td>${p.department_name || '—'}</td><td>${p.status || 'Активен'}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${baseActions.join(' ')}</td>`;
         tbody.appendChild(tr);
       });
@@ -625,10 +634,10 @@
         const tr = document.createElement('tr');
         const baseActions = [];
         if (canManage) {
-          baseActions.push(`<button class="btn edit-task-btn" data-id="${t.id}">Редактировать</button>`);
-          baseActions.push(`<button class="btn delete-task-btn" data-id="${t.id}">Удалить</button>`);
+          baseActions.push(`<button class="btn btn-sm btn-secondary edit-task-btn" data-id="${t.id}">Редактировать</button>`);
+          baseActions.push(`<button class="btn btn-sm btn-secondary delete-task-btn" data-id="${t.id}">Удалить</button>`);
         }
-        baseActions.push(`<button class="btn success close-task-btn" data-id="${t.id}">Закрыть</button>`);
+        baseActions.push(`<button class="btn btn-sm btn-success close-task-btn" data-id="${t.id}">Закрыть</button>`);
         const normalizedStatus = String(t.status || '').toLowerCase();
         const statusCell = normalizedStatus.includes('done') || normalizedStatus.includes('заверш')
           ? `<span class="status-badge status-done">Выполнено</span>`
@@ -653,7 +662,7 @@
         const tr = document.createElement('tr');
         const fileCell = r.file_name ? `<a href="/api/v1/reports/${r.id}/file" target="_blank">${r.file_name}</a>` : '—';
         const kind = String(r.target_type).toLowerCase() === 'project' ? 'Проект' : 'Задача';
-        tr.innerHTML = `<td>${r.id}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.result_status || 'Завершено')}</td><td>${escapeHTML(r.author_name)}</td><td>${escapeHTML(r.title)}</td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td><td><button class="btn toggle-report-btn" data-id="${r.id}">Подробнее</button></td>`;
+        tr.innerHTML = `<td>${r.id}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.result_status || 'Завершено')}</td><td>${escapeHTML(r.author_name)}</td><td>${escapeHTML(r.title)}</td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td><td><button class="btn btn-sm btn-secondary toggle-report-btn" data-id="${r.id}">Подробнее</button></td>`;
         tbody.appendChild(tr);
 
         const detailsTr = document.createElement('tr');
