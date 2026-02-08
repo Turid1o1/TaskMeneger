@@ -1288,7 +1288,7 @@ func (r *Repository) SaveChatFile(baseDir, originalName string, content []byte) 
 	return fullPath, int64(len(content)), nil
 }
 
-func (r *Repository) MessageFilePath(ctx context.Context, messageID int64) (string, string, int64, int64, error) {
+func (r *Repository) MessageFilePath(ctx context.Context, messageID int64) (int64, string, string, int64, error) {
 	var scopeID, fileSize int64
 	var filePath, fileName string
 	err := r.db.QueryRowContext(ctx, `
