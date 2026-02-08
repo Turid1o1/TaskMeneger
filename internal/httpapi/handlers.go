@@ -15,6 +15,44 @@ import (
 
 const maxTaskChatAttachmentBytes = 25 * 1024 * 1024
 
+var roleDepartmentHeadPosition = map[int64]string{
+	1: "Начальник Отдела Поддержки текущих сервисов",
+	2: "Начальник отдела поддержки и развития инфраструктуры",
+	3: "Начальник отдела технической поддержки",
+	4: "Начальник отдела ООИБ",
+}
+
+var positionsByDepartment = map[int64][]string{
+	1: {
+		"Начальник Отдела Поддержки текущих сервисов",
+		"Ведущий системный аналитик отдела Поддержки текущих сервисов",
+		"Системный аналитик отдела Поддержки текущих сервисов",
+		"Ведущий разработчик отдела Поддержки текущих сервисов",
+		"Разработчик отдела Поддержки текущих сервисов",
+		"Тестировщик отдела Поддержки текущих сервисов",
+	},
+	2: {
+		"Начальник отдела поддержки и развития инфраструктуры",
+		"Ведущий системный администратор",
+		"Системный администратор",
+		"Ведущий сетевой инженер",
+		"Сетевой инженер",
+		"Главный специалист",
+	},
+	3: {
+		"Начальник отдела технической поддержки",
+		"Главный специалист технической поддержки",
+		"Специалист технической поддержки",
+	},
+	4: {
+		"Начальник отдела ООИБ",
+		"Зам. нач. отдела ООИБ по бумагам",
+		"Зам. нач. отдела ООИБ по тех. части",
+		"Главный инспектор ООИБ",
+		"Инспектор ООИБ",
+	},
+}
+
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -50,6 +88,10 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	}
 	if !okDep {
 		writeError(w, http.StatusBadRequest, "некорректный отдел")
+		return
+	}
+	if err := validateRoleDepartmentPosition("Member", input.DepartmentID, input.Position); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -297,14 +339,18 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusForbidden, "можно управлять только пользователями своего отдела")
 				return
 			}
-			if strings.EqualFold(target.Role, "Owner") || strings.EqualFold(target.Role, "Admin") || strings.EqualFold(target.Role, "Project Manager") {
+			if isLeadershipRole(target.Role) {
 				writeError(w, http.StatusForbidden, "нельзя менять роль руководящего пользователя")
 				return
 			}
-			if strings.EqualFold(input.Role, "Owner") || strings.EqualFold(input.Role, "Admin") || strings.EqualFold(input.Role, "Project Manager") {
+			if isLeadershipRole(input.Role) {
 				writeError(w, http.StatusForbidden, "начальник отдела может назначать только роли сотрудника или гостя")
 				return
 			}
+		}
+		if err := validateRoleDepartmentPosition(input.Role, target.DepartmentID, target.Position); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
 		}
 
 		if err := s.repo.UpdateUserRole(r.Context(), userID, input.Role); err != nil {
@@ -334,7 +380,7 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "можно управлять только пользователями своего отдела")
 			return
 		}
-		if strings.EqualFold(target.Role, "Owner") || strings.EqualFold(target.Role, "Admin") || strings.EqualFold(target.Role, "Project Manager") {
+		if isLeadershipRole(target.Role) {
 			writeError(w, http.StatusForbidden, "нельзя менять руководящие учетные записи")
 			return
 		}
@@ -356,10 +402,14 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusForbidden, "можно назначать только свой отдел")
 				return
 			}
-			if strings.EqualFold(input.Role, "Owner") || strings.EqualFold(input.Role, "Admin") || strings.EqualFold(input.Role, "Project Manager") {
+			if isLeadershipRole(input.Role) {
 				writeError(w, http.StatusForbidden, "начальник отдела может назначать только роли сотрудника или гостя")
 				return
 			}
+		}
+		if err := validateRoleDepartmentPosition(input.Role, input.DepartmentID, input.Position); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
 		}
 		if err := s.repo.UpdateUser(r.Context(), userID, input); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -784,8 +834,69 @@ func canManageUsers(role string) bool {
 	return strings.EqualFold(role, "Owner") || strings.EqualFold(role, "Admin") || strings.EqualFold(role, "Deputy Admin") || strings.EqualFold(role, "Project Manager")
 }
 
+func isLeadershipRole(role string) bool {
+	return strings.EqualFold(role, "Owner") ||
+		strings.EqualFold(role, "Admin") ||
+		strings.EqualFold(role, "Deputy Admin") ||
+		strings.EqualFold(role, "Project Manager")
+}
+
 func isSuperRole(role string) bool {
 	return strings.EqualFold(role, "Owner") || strings.EqualFold(role, "Admin") || strings.EqualFold(role, "Deputy Admin")
+}
+
+func containsPosition(items []string, value string) bool {
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item), strings.TrimSpace(value)) {
+			return true
+		}
+	}
+	return false
+}
+
+func validateRoleDepartmentPosition(role string, departmentID int64, position string) error {
+	pos := strings.TrimSpace(position)
+	if pos == "" {
+		return errors.New("должность обязательна")
+	}
+	if departmentID <= 0 {
+		return errors.New("выберите отдел/подразделение")
+	}
+	depPositions, ok := positionsByDepartment[departmentID]
+	if !ok {
+		return errors.New("некорректный отдел/подразделение")
+	}
+
+	switch {
+	case strings.EqualFold(role, "Owner"):
+		return nil
+	case strings.EqualFold(role, "Admin"):
+		if !strings.EqualFold(pos, "Начальник УЦС") {
+			return errors.New("для роли «Начальник УЦС» должность должна быть «Начальник УЦС»")
+		}
+		return nil
+	case strings.EqualFold(role, "Deputy Admin"):
+		if !strings.EqualFold(pos, "Заместитель начальника УЦС") {
+			return errors.New("для роли «Заместитель начальника УЦС» нужна одноименная должность")
+		}
+		return nil
+	case strings.EqualFold(role, "Project Manager"):
+		headPosition, ok := roleDepartmentHeadPosition[departmentID]
+		if !ok {
+			return errors.New("для начальника отдела не найдено правило должности")
+		}
+		if !strings.EqualFold(pos, headPosition) {
+			return fmt.Errorf("для роли «Начальник отдела» в выбранном отделе нужна должность «%s»", headPosition)
+		}
+		return nil
+	case strings.EqualFold(role, "Member"), strings.EqualFold(role, "Guest"):
+		if !containsPosition(depPositions, pos) {
+			return errors.New("должность не соответствует выбранному отделу/подразделению")
+		}
+		return nil
+	default:
+		return errors.New("некорректная роль")
+	}
 }
 
 func (s *Server) decorateUserAvatar(user *models.User) {
