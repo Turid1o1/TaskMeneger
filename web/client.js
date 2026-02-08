@@ -134,15 +134,22 @@
       try {
         const data = await api('/api/v1/departments');
         const items = data.items || [];
-        fillSelect(depSelect, items, 'id', 'name', false);
-        fillPositionSelect(posSelect, Number(depSelect.value || 1), '');
+        fillSelect(depSelect, items, 'id', 'name', true);
+        if (depSelect.options.length) depSelect.options[0].textContent = '';
+        const firstDepID = items.length ? Number(items[0].id) : 0;
+        fillPositionSelect(posSelect, firstDepID, '', true);
+        if (posSelect.options.length) posSelect.options[0].textContent = '';
+        posSelect.value = '';
       } catch (e) {
         msg.textContent = e.message;
       }
     }
 
     depSelect?.addEventListener('change', () => {
-      fillPositionSelect(posSelect, Number(depSelect.value || 1), '');
+      const depID = Number(depSelect.value || 0);
+      fillPositionSelect(posSelect, depID, '', true);
+      if (posSelect.options.length) posSelect.options[0].textContent = '';
+      posSelect.value = '';
     });
 
     form.addEventListener('submit', async (e) => {
@@ -156,6 +163,8 @@
         department_id: Number(document.getElementById('reg-department').value || 0)
       };
       try {
+        if (!payload.department_id) throw new Error('Выберите отдел');
+        if (!payload.position) throw new Error('Выберите должность');
         await api('/api/v1/auth/register', {
           method: 'POST',
           body: JSON.stringify(payload)
@@ -200,12 +209,18 @@
     return items.slice();
   }
 
-  function fillPositionSelect(select, departmentID, selectedValue) {
+  function fillPositionSelect(select, departmentID, selectedValue, withEmpty) {
     if (!select) return;
     const options = positionOptionsByDepartment(departmentID);
     const normalizedSelected = String(selectedValue || '').trim();
     if (normalizedSelected && !options.includes(normalizedSelected)) options.push(normalizedSelected);
     select.innerHTML = '';
+    if (withEmpty) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Выберите должность';
+      select.appendChild(option);
+    }
     options.forEach((item) => {
       const option = document.createElement('option');
       option.value = item;
@@ -213,7 +228,7 @@
       select.appendChild(option);
     });
     if (normalizedSelected) select.value = normalizedSelected;
-    if (!select.value && options.length) select.value = options[0];
+    if (!select.value && options.length && !withEmpty) select.value = options[0];
   }
 
   function assigneesText(task) {

@@ -40,9 +40,10 @@ body {
   min-height: 100vh;
   padding: 0;
   background:
-    radial-gradient(900px 540px at 76% 52%, rgba(140, 190, 255, 0.28) 0%, rgba(26, 63, 121, 0.18) 45%, rgba(10, 26, 51, 0) 100%),
-    linear-gradient(90deg, rgba(7, 19, 37, 0.54) 0%, rgba(10, 31, 58, 0.32) 45%, rgba(23, 62, 112, 0.2) 100%),
-    url("/assets/login-hero.png") left center / auto 100% no-repeat,
+    radial-gradient(900px 560px at 78% 52%, rgba(160, 205, 255, 0.3) 0%, rgba(39, 82, 146, 0.18) 48%, rgba(10, 26, 51, 0) 100%),
+    linear-gradient(90deg, rgba(8, 20, 38, 0.56) 0%, rgba(13, 33, 61, 0.34) 40%, rgba(25, 64, 114, 0.22) 100%),
+    linear-gradient(90deg, rgba(8, 20, 38, 0.9) 0%, rgba(8, 20, 38, 0.18) 20%, rgba(8, 20, 38, 0) 34%),
+    url("/assets/login-hero.png") 8% center / auto 100% no-repeat,
     #0a1a33;
   overflow: hidden;
 }
@@ -54,6 +55,14 @@ body {
   align-items: center;
   justify-content: flex-end;
   position: relative;
+}
+.login-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(9, 25, 47, 0.08) 18%, rgba(11, 31, 58, 0.45) 42%, rgba(11, 31, 58, 0.14) 60%, rgba(11, 31, 58, 0) 75%);
+  backdrop-filter: blur(1.4px);
 }
 .login-visual {
   display: none;
@@ -72,6 +81,8 @@ body {
   place-items: center end;
   width: min(700px, 46vw);
   height: 100%;
+  position: relative;
+  z-index: 1;
 }
 .auth-card {
   width: min(680px, 100%);
@@ -125,9 +136,10 @@ body {
 .auth-card label {
   display: block;
   font-size: 18px;
-  color: #28457c;
+  color: #1f3f76;
   font-weight: 600;
   margin-bottom: 6px;
+  text-shadow: 0 1px 1px rgba(255,255,255,0.45);
 }
 .auth-input {
   width: 100%;
@@ -137,7 +149,8 @@ body {
   padding: 12px 14px;
   font-size: 18px;
   background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(245, 251, 255, 0.8));
-  color: #1f3357;
+  color: #112c54;
+  font-weight: 500;
 }
 .auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); margin-top: var(--space-8); }
 .auth-btn {
@@ -582,8 +595,8 @@ textarea { min-height: 90px; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .login-page {
     background:
-      linear-gradient(90deg, rgba(8, 20, 38, 0.56) 0%, rgba(12, 31, 58, 0.35) 100%),
-      url("/assets/login-hero.png") center center / cover no-repeat;
+      linear-gradient(90deg, rgba(8, 20, 38, 0.62) 0%, rgba(12, 31, 58, 0.45) 100%),
+      url("/assets/login-hero.png") 15% center / cover no-repeat;
   }
   .login-shell { justify-content: center; padding: var(--space-16); }
   .login-panel { width: 100%; }
