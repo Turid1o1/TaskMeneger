@@ -1,6 +1,36 @@
 (function () {
   const SESSION_KEY = 'taskflow_session';
   const SETTINGS_KEY = 'taskflow_settings';
+  const POSITIONS_BY_DEPARTMENT = {
+    1: [
+      'Начальник отдела сопровождения ИС',
+      'Ведущий инженер сопровождения ИС',
+      'Инженер сопровождения ИС',
+      'Системный аналитик сопровождения ИС',
+      'Специалист сопровождения ИС'
+    ],
+    2: [
+      'Начальник отдела поддержки и развития инфраструктуры',
+      'Ведущий системный инженер',
+      'Системный администратор',
+      'DevOps инженер',
+      'Инженер мониторинга'
+    ],
+    3: [
+      'Начальник отдела технической поддержки',
+      'Старший специалист технической поддержки',
+      'Специалист технической поддержки',
+      'Инженер сервис-деска',
+      'Оператор технической поддержки'
+    ],
+    4: [
+      'Начальник отдела информационной безопасности',
+      'Ведущий специалист ИБ',
+      'Специалист ИБ',
+      'Аналитик ИБ',
+      'Инженер ИБ'
+    ]
+  };
 
   function getSession() {
     const raw = localStorage.getItem(SESSION_KEY);
@@ -69,6 +99,24 @@
   function initRegisterPage() {
     const form = document.getElementById('register-form');
     if (!form) return;
+    const depSelect = document.getElementById('reg-department');
+    const posSelect = document.getElementById('reg-position');
+    const msg = document.getElementById('register-message');
+
+    async function loadRegisterMeta() {
+      try {
+        const data = await api('/api/v1/departments');
+        const items = data.items || [];
+        fillSelect(depSelect, items, 'id', 'name', false);
+        fillPositionSelect(posSelect, Number(depSelect.value || 1), '');
+      } catch (e) {
+        msg.textContent = e.message;
+      }
+    }
+
+    depSelect?.addEventListener('change', () => {
+      fillPositionSelect(posSelect, Number(depSelect.value || 1), '');
+    });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -77,9 +125,9 @@
         password: document.getElementById('reg-password').value,
         repeat_password: document.getElementById('reg-password-repeat').value,
         full_name: document.getElementById('reg-fullname').value.trim(),
-        position: document.getElementById('reg-position').value.trim()
+        position: document.getElementById('reg-position').value.trim(),
+        department_id: Number(document.getElementById('reg-department').value || 0)
       };
-      const msg = document.getElementById('register-message');
       try {
         await api('/api/v1/auth/register', {
           method: 'POST',
@@ -91,6 +139,8 @@
         msg.textContent = e.message;
       }
     });
+
+    loadRegisterMeta();
   }
 
   function setView(view) {
@@ -116,6 +166,27 @@
       option.textContent = typeof labelField === 'function' ? labelField(item) : item[labelField];
       select.appendChild(option);
     });
+  }
+
+  function positionOptionsByDepartment(departmentID) {
+    const items = POSITIONS_BY_DEPARTMENT[Number(departmentID)] || [];
+    return items.slice();
+  }
+
+  function fillPositionSelect(select, departmentID, selectedValue) {
+    if (!select) return;
+    const options = positionOptionsByDepartment(departmentID);
+    const normalizedSelected = String(selectedValue || '').trim();
+    if (normalizedSelected && !options.includes(normalizedSelected)) options.push(normalizedSelected);
+    select.innerHTML = '';
+    options.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item;
+      option.textContent = item;
+      select.appendChild(option);
+    });
+    if (normalizedSelected) select.value = normalizedSelected;
+    if (!select.value && options.length) select.value = options[0];
   }
 
   function assigneesText(task) {
@@ -174,10 +245,10 @@
   function roleLabel(value) {
     const v = String(value || '').toLowerCase();
     if (v === 'owner') return 'Владелец';
-    if (v === 'admin') return 'Администратор';
-    if (v === 'project manager') return 'Менеджер проекта';
+    if (v === 'admin') return 'Начальник УЦС';
+    if (v === 'project manager') return 'Начальник отдела';
     if (v === 'guest') return 'Гость';
-    return 'Сотрудник';
+    return 'Сотрудник отдела';
   }
 
   function departmentLabel(departmentID, departments) {
@@ -247,7 +318,7 @@
     document.getElementById('current-user').textContent = `${session.full_name}\n${session.position || ''}`;
     const canManage = ['Owner', 'Admin', 'Project Manager'].includes(session.role);
     const isSuper = ['Owner', 'Admin'].includes(session.role);
-    const isScopedRole = ['Project Manager', 'Member', 'Guest'].includes(session.role);
+    const isScopedRole = ['Member', 'Guest'].includes(session.role);
 
     let users = [];
     let departments = [];
@@ -324,6 +395,30 @@
       return selectedDepartmentID;
     }
 
+    function refreshUserPositionOptions(selectedValue) {
+      const depID = Number(document.getElementById('user-department')?.value || session.department_id || 1);
+      fillPositionSelect(document.getElementById('user-position'), depID, selectedValue || '');
+    }
+
+    function applyUserEditorPermissions() {
+      if (!canManage) return;
+      const roleSelect = document.getElementById('user-role');
+      const departmentSelect = document.getElementById('user-department');
+      if (session.role !== 'Project Manager') {
+        roleSelect.disabled = false;
+        departmentSelect.disabled = false;
+        return;
+      }
+      const allowedRoles = new Set(['Member', 'Guest']);
+      Array.from(roleSelect.options).forEach((opt) => {
+        opt.hidden = !allowedRoles.has(opt.value);
+      });
+      if (!allowedRoles.has(roleSelect.value)) roleSelect.value = 'Member';
+      roleSelect.disabled = false;
+      departmentSelect.value = String(session.department_id || '');
+      departmentSelect.disabled = true;
+    }
+
     function resetProjectEditor() {
       editingProjectID = null;
       document.getElementById('project-editor-title').textContent = 'Создать проект';
@@ -354,9 +449,10 @@
       document.getElementById('user-editor-title').textContent = 'Редактирование пользователя';
       document.getElementById('user-login').value = '';
       document.getElementById('user-fullname').value = '';
-      document.getElementById('user-position').value = '';
-      document.getElementById('user-department').value = '1';
+      document.getElementById('user-department').value = String(session.department_id || 1);
+      refreshUserPositionOptions('');
       document.getElementById('user-role').value = 'Member';
+      applyUserEditorPermissions();
       document.getElementById('user-editor-message').textContent = '';
     }
 
@@ -578,6 +674,8 @@
       const data = await api('/api/v1/users');
       users = data.items || [];
       refreshStaffSelectors();
+      refreshUserPositionOptions(document.getElementById('user-position')?.value || '');
+      applyUserEditorPermissions();
 
       const tbody = document.querySelector('#users-table tbody');
       if (!tbody) return;
@@ -662,13 +760,13 @@
         const tr = document.createElement('tr');
         const fileCell = r.file_name ? `<a href="/api/v1/reports/${r.id}/file" target="_blank">${r.file_name}</a>` : '—';
         const kind = String(r.target_type).toLowerCase() === 'project' ? 'Проект' : 'Задача';
-        tr.innerHTML = `<td>${r.id}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.result_status || 'Завершено')}</td><td>${escapeHTML(r.author_name)}</td><td>${escapeHTML(r.title)}</td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td><td><button class="btn btn-sm btn-secondary toggle-report-btn" data-id="${r.id}">Подробнее</button></td>`;
+        tr.innerHTML = `<td>${r.id}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.result_status || 'Завершено')}</td><td>${escapeHTML(r.author_name)}</td><td><div class="report-title-cell"><div class="report-title-text" title="${escapeHTML(r.title)}">${escapeHTML(r.title)}</div><button class="btn btn-sm btn-secondary toggle-report-btn" data-id="${r.id}">Подробнее</button></div></td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td>`;
         tbody.appendChild(tr);
 
         const detailsTr = document.createElement('tr');
         detailsTr.className = 'report-details-row hidden';
         detailsTr.dataset.reportId = String(r.id);
-        detailsTr.innerHTML = `<td colspan="9">
+        detailsTr.innerHTML = `<td colspan="8">
           <div class="report-details">
             <div><strong>Объект:</strong> ${escapeHTML(r.target_label)}</div>
             <div><strong>Результат:</strong> ${escapeHTML(r.result_status || 'Завершено')}</div>
@@ -743,9 +841,10 @@
       document.getElementById('user-editor-title').textContent = `Редактирование пользователя #${item.id}`;
       document.getElementById('user-login').value = item.login;
       document.getElementById('user-fullname').value = item.full_name;
-      document.getElementById('user-position').value = item.position;
       document.getElementById('user-department').value = String(item.department_id || 1);
+      refreshUserPositionOptions(item.position);
       document.getElementById('user-role').value = item.role;
+      applyUserEditorPermissions();
       setView('users');
     }
 
@@ -813,12 +912,20 @@
     }
 
     async function saveUser() {
+      let departmentID = Number(document.getElementById('user-department').value || 0);
+      let role = document.getElementById('user-role').value;
+      if (session.role === 'Project Manager') {
+        departmentID = Number(session.department_id || 0);
+        if (role !== 'Member' && role !== 'Guest') {
+          role = 'Member';
+        }
+      }
       const payload = {
         login: document.getElementById('user-login').value.trim(),
         full_name: document.getElementById('user-fullname').value.trim(),
         position: document.getElementById('user-position').value.trim(),
-        role: document.getElementById('user-role').value,
-        department_id: Number(document.getElementById('user-department').value || 0)
+        role,
+        department_id: departmentID
       };
       const msg = document.getElementById('user-editor-message');
       try {
@@ -1082,6 +1189,9 @@
     });
     document.getElementById('project-department')?.addEventListener('change', refreshStaffSelectors);
     document.getElementById('task-project')?.addEventListener('change', refreshStaffSelectors);
+    document.getElementById('user-department')?.addEventListener('change', () => {
+      refreshUserPositionOptions('');
+    });
     document.getElementById('projects-prev-btn')?.addEventListener('click', async () => {
       pagination.projects.page -= 1;
       await loadProjects();
@@ -1113,7 +1223,9 @@
 
     try {
       await loadDepartments();
-      await loadUsers();
+      if (canManage) {
+        await loadUsers();
+      }
       await loadProjects();
       await loadTasks();
       await loadReports();

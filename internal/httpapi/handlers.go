@@ -36,6 +36,19 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "заполните все поля")
 		return
 	}
+	if input.DepartmentID <= 0 {
+		writeError(w, http.StatusBadRequest, "выберите отдел")
+		return
+	}
+	okDep, err := s.repo.DepartmentExists(r.Context(), input.DepartmentID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !okDep {
+		writeError(w, http.StatusBadRequest, "некорректный отдел")
+		return
+	}
 
 	if err := s.repo.Register(r.Context(), input); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -73,8 +86,23 @@ func (s *Server) users(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-
-	users, err := s.repo.Users(r.Context())
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
+		return
+	}
+	var (
+		users []models.User
+		err   error
+	)
+	switch {
+	case isSuperRole(actor.Role):
+		users, err = s.repo.Users(r.Context())
+	case strings.EqualFold(actor.Role, "Project Manager"):
+		users, err = s.repo.UsersByDepartment(r.Context(), actor.DepartmentID)
+	default:
+		writeError(w, http.StatusForbidden, "недостаточно прав")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -87,18 +115,28 @@ func (s *Server) departments(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	actor, ok := s.actorFromRequest(w, r)
-	if !ok {
-		return
-	}
-	if !isSuperRole(actor.Role) {
-		writeError(w, http.StatusForbidden, "недостаточно прав")
-		return
-	}
+	actorLogin := strings.TrimSpace(r.Header.Get("X-Actor-Login"))
 	items, err := s.repo.Departments(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if actorLogin != "" {
+		actor, err := s.repo.UserByLogin(r.Context(), actorLogin)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "пользователь не найден")
+			return
+		}
+		if strings.EqualFold(actor.Role, "Project Manager") || strings.EqualFold(actor.Role, "Member") || strings.EqualFold(actor.Role, "Guest") {
+			filtered := make([]models.Department, 0, 1)
+			for _, d := range items {
+				if d.ID == actor.DepartmentID {
+					filtered = append(filtered, d)
+					break
+				}
+			}
+			items = filtered
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
@@ -137,12 +175,17 @@ func (s *Server) profile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
+		return
+	}
 	if userID, ok := parseUserRolePath(r.URL.Path); ok {
 		if r.Method != http.MethodPatch {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
 		}
-		if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
+		if !canManageUsers(actor.Role) {
+			writeError(w, http.StatusForbidden, "недостаточно прав")
 			return
 		}
 
@@ -154,6 +197,25 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 		if !isAllowedRole(input.Role) {
 			writeError(w, http.StatusBadRequest, "некорректная роль")
 			return
+		}
+		target, err := s.repo.UserByID(r.Context(), userID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if strings.EqualFold(actor.Role, "Project Manager") {
+			if target.DepartmentID != actor.DepartmentID {
+				writeError(w, http.StatusForbidden, "можно управлять только пользователями своего отдела")
+				return
+			}
+			if strings.EqualFold(target.Role, "Owner") || strings.EqualFold(target.Role, "Admin") || strings.EqualFold(target.Role, "Project Manager") {
+				writeError(w, http.StatusForbidden, "нельзя менять роль руководящего пользователя")
+				return
+			}
+			if strings.EqualFold(input.Role, "Owner") || strings.EqualFold(input.Role, "Admin") || strings.EqualFold(input.Role, "Project Manager") {
+				writeError(w, http.StatusForbidden, "начальник отдела может назначать только роли сотрудника или гостя")
+				return
+			}
 		}
 
 		if err := s.repo.UpdateUserRole(r.Context(), userID, input.Role); err != nil {
@@ -169,9 +231,24 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
-
-	if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
+	if !canManageUsers(actor.Role) {
+		writeError(w, http.StatusForbidden, "недостаточно прав")
 		return
+	}
+	target, err := s.repo.UserByID(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if strings.EqualFold(actor.Role, "Project Manager") {
+		if target.DepartmentID != actor.DepartmentID {
+			writeError(w, http.StatusForbidden, "можно управлять только пользователями своего отдела")
+			return
+		}
+		if strings.EqualFold(target.Role, "Owner") || strings.EqualFold(target.Role, "Admin") || strings.EqualFold(target.Role, "Project Manager") {
+			writeError(w, http.StatusForbidden, "нельзя менять руководящие учетные записи")
+			return
+		}
 	}
 
 	switch r.Method {
@@ -184,6 +261,16 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 		if input.Login == "" || input.FullName == "" || input.Position == "" || !isAllowedRole(input.Role) || input.DepartmentID <= 0 {
 			writeError(w, http.StatusBadRequest, "заполните корректные поля")
 			return
+		}
+		if strings.EqualFold(actor.Role, "Project Manager") {
+			if input.DepartmentID != actor.DepartmentID {
+				writeError(w, http.StatusForbidden, "можно назначать только свой отдел")
+				return
+			}
+			if strings.EqualFold(input.Role, "Owner") || strings.EqualFold(input.Role, "Admin") || strings.EqualFold(input.Role, "Project Manager") {
+				writeError(w, http.StatusForbidden, "начальник отдела может назначать только роли сотрудника или гостя")
+				return
+			}
 		}
 		if err := s.repo.UpdateUser(r.Context(), userID, input); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -232,6 +319,10 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 		if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
 			return
 		}
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
 		var input models.CreateProjectInput
 		if err := decodeJSON(r, &input); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -239,6 +330,10 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 		}
 		if input.Name == "" || input.DepartmentID <= 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
+			return
+		}
+		if strings.EqualFold(actor.Role, "Project Manager") && input.DepartmentID != actor.DepartmentID {
+			writeError(w, http.StatusForbidden, "начальник отдела может создавать проекты только своего отдела")
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
@@ -342,6 +437,10 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 	if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
 		return
 	}
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
+		return
+	}
 
 	switch r.Method {
 	case http.MethodPut:
@@ -352,6 +451,10 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		if input.Name == "" || input.DepartmentID <= 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
+			return
+		}
+		if strings.EqualFold(actor.Role, "Project Manager") && input.DepartmentID != actor.DepartmentID {
+			writeError(w, http.StatusForbidden, "начальник отдела может редактировать проекты только своего отдела")
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
@@ -411,6 +514,10 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 		if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
 			return
 		}
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
 		var input models.CreateTaskInput
 		if err := decodeJSON(r, &input); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -423,6 +530,10 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 		departmentID, err := s.repo.ProjectDepartmentID(r.Context(), input.ProjectID)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if strings.EqualFold(actor.Role, "Project Manager") && departmentID != actor.DepartmentID {
+			writeError(w, http.StatusForbidden, "начальник отдела может создавать задачи только в проектах своего отдела")
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
@@ -486,6 +597,10 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 	if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
 		return
 	}
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
+		return
+	}
 
 	switch r.Method {
 	case http.MethodPut:
@@ -501,6 +616,10 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 		departmentID, err := s.repo.ProjectDepartmentID(r.Context(), input.ProjectID)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if strings.EqualFold(actor.Role, "Project Manager") && departmentID != actor.DepartmentID {
+			writeError(w, http.StatusForbidden, "начальник отдела может редактировать задачи только в проектах своего отдела")
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
@@ -567,6 +686,10 @@ func isAllowedRole(role string) bool {
 	default:
 		return false
 	}
+}
+
+func canManageUsers(role string) bool {
+	return strings.EqualFold(role, "Owner") || strings.EqualFold(role, "Admin") || strings.EqualFold(role, "Project Manager")
 }
 
 func isSuperRole(role string) bool {

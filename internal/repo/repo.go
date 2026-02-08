@@ -34,11 +34,14 @@ func (r *Repository) Register(ctx context.Context, in models.RegisterInput) erro
 	if in.Password != in.RepeatPassword {
 		return errors.New("пароли не совпадают")
 	}
+	if in.DepartmentID <= 0 {
+		return errors.New("укажите отдел")
+	}
 	hash := r.PasswordHash(in.Password)
 	_, err := r.db.ExecContext(ctx, `
 INSERT INTO users (login, password_hash, full_name, position, role, department_id)
-VALUES (?, ?, ?, ?, 'Member', 1)
-`, strings.TrimSpace(in.Login), hash, strings.TrimSpace(in.FullName), strings.TrimSpace(in.Position))
+VALUES (?, ?, ?, ?, 'Member', ?)
+`, strings.TrimSpace(in.Login), hash, strings.TrimSpace(in.FullName), strings.TrimSpace(in.Position), in.DepartmentID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return errors.New("логин уже существует")
@@ -69,14 +72,29 @@ FROM users WHERE login = ?
 }
 
 func (r *Repository) Users(ctx context.Context) ([]models.User, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	return r.usersQuery(ctx, nil)
+}
+
+func (r *Repository) UsersByDepartment(ctx context.Context, departmentID int64) ([]models.User, error) {
+	return r.usersQuery(ctx, &departmentID)
+}
+
+func (r *Repository) usersQuery(ctx context.Context, departmentID *int64) ([]models.User, error) {
+	query := `
 SELECT u.id, u.login, u.full_name, u.position, u.role,
        COALESCE(u.department_id, 1),
        COALESCE(d.name, 'Отдел не указан')
 FROM users u
 LEFT JOIN departments d ON d.id = u.department_id
-ORDER BY u.id
-`)
+`
+	args := make([]any, 0, 1)
+	if departmentID != nil {
+		query += " WHERE u.department_id = ?"
+		args = append(args, *departmentID)
+	}
+	query += " ORDER BY u.id"
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query users: %w", err)
 	}
@@ -91,6 +109,36 @@ ORDER BY u.id
 		result = append(result, u)
 	}
 	return result, rows.Err()
+}
+
+func (r *Repository) UserByID(ctx context.Context, userID int64) (models.User, error) {
+	var u models.User
+	err := r.db.QueryRowContext(ctx, `
+SELECT u.id, u.login, u.full_name, u.position, u.role,
+       COALESCE(u.department_id, 1),
+       COALESCE(d.name, 'Отдел не указан')
+FROM users u
+LEFT JOIN departments d ON d.id = u.department_id
+WHERE u.id = ?
+`, userID).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &u.DepartmentID, &u.DepartmentName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, errors.New("пользователь не найден")
+		}
+		return models.User{}, fmt.Errorf("query user by id: %w", err)
+	}
+	return u, nil
+}
+
+func (r *Repository) DepartmentExists(ctx context.Context, departmentID int64) (bool, error) {
+	var exists int
+	if err := r.db.QueryRowContext(ctx, `SELECT 1 FROM departments WHERE id = ? LIMIT 1`, departmentID).Scan(&exists); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("query department: %w", err)
+	}
+	return true, nil
 }
 
 func (r *Repository) UserByLogin(ctx context.Context, login string) (models.User, error) {

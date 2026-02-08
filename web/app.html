@@ -191,7 +191,7 @@
         <div class="header-row"><div><h1>Отчеты</h1></div><button class="btn btn-md btn-secondary" data-view="dashboard">Назад</button></div>
 
         <table class="table" id="reports-table">
-          <thead><tr><th>ID</th><th>Тип</th><th>Объект</th><th>Результат</th><th>Автор</th><th>Заголовок</th><th>Файл</th><th>Дата</th><th>Детали</th></tr></thead>
+          <thead><tr><th>ID</th><th>Тип</th><th>Объект</th><th>Результат</th><th>Автор</th><th>Заголовок</th><th>Файл</th><th>Дата</th></tr></thead>
           <tbody></tbody>
         </table>
         <div class="table-pager">
@@ -257,9 +257,9 @@
           <div class="grid-3">
             <div><label>Логин</label><input id="user-login"></div>
             <div><label>ФИО</label><input id="user-fullname"></div>
-            <div><label>Должность</label><input id="user-position"></div>
+            <div><label>Должность</label><select id="user-position"></select></div>
             <div><label>Отдел</label><select id="user-department"></select></div>
-            <div><label>Роль</label><select id="user-role"><option value="Owner">Владелец</option><option value="Admin">Администратор</option><option value="Project Manager">Менеджер проекта</option><option value="Member">Сотрудник</option><option value="Guest">Гость</option></select></div>
+            <div><label>Роль</label><select id="user-role"><option value="Owner">Владелец</option><option value="Admin">Начальник УЦС</option><option value="Project Manager">Начальник отдела</option><option value="Member">Сотрудник отдела</option><option value="Guest">Гость</option></select></div>
           </div>
           <div class="row-actions">
             <button class="btn btn-md btn-primary" id="save-user-btn">Сохранить</button>

@@ -51,6 +51,7 @@ type RegisterInput struct {
 	RepeatPassword string `json:"repeat_password"`
 	FullName       string `json:"full_name"`
 	Position       string `json:"position"`
+	DepartmentID   int64  `json:"department_id"`
 }
 
 type LoginInput struct {
