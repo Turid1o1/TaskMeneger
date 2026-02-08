@@ -892,7 +892,7 @@ SELECT r.id,
        r.created_at
 FROM reports r
 JOIN users u ON u.id = r.author_user_id
-ORDER BY r.id DESC
+ORDER BY r.id ASC
 `)
 	if err != nil {
 		return nil, fmt.Errorf("query reports: %w", err)
@@ -938,7 +938,7 @@ WHERE CASE
   WHEN lower(r.target_type) = 'project' THEN COALESCE(pp.department_id, 0)
   ELSE 0
 END = ?
-ORDER BY r.id DESC
+ORDER BY r.id ASC
 `, departmentID)
 	if err != nil {
 		return nil, fmt.Errorf("query reports by department: %w", err)
@@ -984,7 +984,7 @@ LEFT JOIN project_assignees pa ON pa.project_id = pp.id
 LEFT JOIN project_curators pc ON pc.project_id = pp.id
 WHERE (lower(r.target_type) = 'task' AND (ta.user_id = ? OR tc.user_id = ?))
    OR (lower(r.target_type) = 'project' AND (pa.user_id = ? OR pc.user_id = ?))
-ORDER BY r.id DESC
+ORDER BY r.id ASC
 `, userID, userID, userID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("query reports by user: %w", err)

@@ -147,7 +147,8 @@ CREATE TABLE IF NOT EXISTS reports (
 INSERT OR IGNORE INTO departments (id, name) VALUES
   (1, 'Отдел сопровождения информационных систем'),
   (2, 'Отдел поддержки и развития инфраструктуры'),
-  (3, 'Отдел технической поддержки');
+  (3, 'Отдел технической поддержки'),
+  (4, 'Отдел по обеспечению информационной безопасности');
 `); err != nil {
 		return fmt.Errorf("seed departments: %w", err)
 	}
@@ -157,9 +158,10 @@ SET name = CASE id
   WHEN 1 THEN 'Отдел сопровождения информационных систем'
   WHEN 2 THEN 'Отдел поддержки и развития инфраструктуры'
   WHEN 3 THEN 'Отдел технической поддержки'
+  WHEN 4 THEN 'Отдел по обеспечению информационной безопасности'
   ELSE name
 END
-WHERE id IN (1,2,3);
+WHERE id IN (1,2,3,4);
 `); err != nil {
 		return fmt.Errorf("normalize departments names: %w", err)
 	}
