@@ -14,6 +14,10 @@ type Project struct {
 	Name          string `json:"name"`
 	CuratorUserID int64  `json:"curator_user_id"`
 	CuratorName   string `json:"curator_name"`
+	CuratorNames  string `json:"curator_names"`
+	AssigneeNames string `json:"assignee_names"`
+	Curators      []User `json:"curators"`
+	Assignees     []User `json:"assignees"`
 }
 
 type Task struct {
@@ -28,6 +32,7 @@ type Task struct {
 	ProjectKey    string  `json:"project_key"`
 	CuratorUserID int64   `json:"curator_user_id"`
 	CuratorName   string  `json:"curator_name"`
+	Curators      []User  `json:"curators"`
 	DueDate       *string `json:"due_date,omitempty"`
 	Assignees     []User  `json:"assignees"`
 }
@@ -53,21 +58,23 @@ type CreateTaskInput struct {
 	Status       string  `json:"status"`
 	Priority     string  `json:"priority"`
 	ProjectID    int64   `json:"project_id"`
-	CuratorID    int64   `json:"curator_id"`
+	CuratorIDs   []int64 `json:"curator_ids"`
 	AssigneeIDs  []int64 `json:"assignee_ids"`
 	DueDate      *string `json:"due_date"`
 }
 
 type CreateProjectInput struct {
-	Key       string `json:"key"`
-	Name      string `json:"name"`
-	CuratorID int64  `json:"curator_id"`
+	Key         string  `json:"key"`
+	Name        string  `json:"name"`
+	CuratorIDs  []int64 `json:"curator_ids"`
+	AssigneeIDs []int64 `json:"assignee_ids"`
 }
 
 type UpdateProjectInput struct {
-	Key       string `json:"key"`
-	Name      string `json:"name"`
-	CuratorID int64  `json:"curator_id"`
+	Key         string  `json:"key"`
+	Name        string  `json:"name"`
+	CuratorIDs  []int64 `json:"curator_ids"`
+	AssigneeIDs []int64 `json:"assignee_ids"`
 }
 
 type UpdateUserRoleInput struct {
@@ -89,7 +96,7 @@ type UpdateTaskInput struct {
 	Status      string  `json:"status"`
 	Priority    string  `json:"priority"`
 	ProjectID   int64   `json:"project_id"`
-	CuratorID   int64   `json:"curator_id"`
+	CuratorIDs  []int64 `json:"curator_ids"`
 	AssigneeIDs []int64 `json:"assignee_ids"`
 	DueDate     *string `json:"due_date"`
 }

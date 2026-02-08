@@ -109,6 +109,10 @@
     return (task.assignees || []).map(a => a.full_name).join(', ') || '—';
   }
 
+  function usersText(users) {
+    return (users || []).map(u => u.full_name).join(', ') || '—';
+  }
+
   function priorityMeta(priority) {
     const p = String(priority || '').toLowerCase();
     if (p.includes('high') || p.includes('critical') || p.includes('выс')) {
@@ -118,6 +122,31 @@
       return { cls: 'prio-medium', label: 'Средний' };
     }
     return { cls: 'prio-low', label: 'Низкий' };
+  }
+
+  function typeLabel(value) {
+    const v = String(value || '').toLowerCase();
+    if (v === 'bug') return 'Ошибка';
+    if (v === 'story') return 'История';
+    if (v === 'epic') return 'Эпик';
+    return 'Задача';
+  }
+
+  function statusLabel(value) {
+    const v = String(value || '').toLowerCase();
+    if (v.includes('progress')) return 'В процессе';
+    if (v.includes('review')) return 'Проверка';
+    if (v.includes('done')) return 'Завершено';
+    return 'К выполнению';
+  }
+
+  function roleLabel(value) {
+    const v = String(value || '').toLowerCase();
+    if (v === 'owner') return 'Владелец';
+    if (v === 'admin') return 'Администратор';
+    if (v === 'project manager') return 'Менеджер проекта';
+    if (v === 'guest') return 'Гость';
+    return 'Сотрудник';
   }
 
   function toIsoDate(v) {
@@ -161,7 +190,7 @@
       return;
     }
 
-    document.getElementById('current-user').textContent = `${session.full_name} (${session.role})`;
+    document.getElementById('current-user').textContent = `${session.full_name} (${roleLabel(session.role)})`;
     const canManage = ['Owner', 'Admin', 'Project Manager'].includes(session.role);
 
     let users = [];
@@ -172,12 +201,30 @@
     let editingUserID = null;
     const settings = loadSettings();
 
+    function bindMultiLimit(elementID, limit) {
+      const el = document.getElementById(elementID);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        const selected = Array.from(el.selectedOptions);
+        if (selected.length <= limit) return;
+        selected[selected.length - 1].selected = false;
+        alert(`Можно выбрать максимум ${limit}`);
+      });
+    }
+
+    function selectedIDs(elementID) {
+      const el = document.getElementById(elementID);
+      if (!el) return [];
+      return Array.from(el.selectedOptions).map(o => Number(o.value)).filter(Boolean);
+    }
+
     function resetProjectEditor() {
       editingProjectID = null;
       document.getElementById('project-editor-title').textContent = 'Создать проект';
       document.getElementById('project-key').value = '';
       document.getElementById('project-name').value = '';
-      document.getElementById('project-curator').value = '';
+      Array.from(document.getElementById('project-curators').options).forEach(o => (o.selected = false));
+      Array.from(document.getElementById('project-assignees').options).forEach(o => (o.selected = false));
       document.getElementById('project-editor-message').textContent = '';
     }
 
@@ -190,9 +237,9 @@
       document.getElementById('task-type').value = 'Task';
       document.getElementById('task-status').value = 'To Do';
       document.getElementById('task-priority').value = 'Low';
-      document.getElementById('task-curator').value = '';
       document.getElementById('task-due-date').value = '';
       document.getElementById('task-description').value = '';
+      Array.from(document.getElementById('task-curators').options).forEach(o => (o.selected = false));
       Array.from(document.getElementById('task-assignees').options).forEach(o => (o.selected = false));
       document.getElementById('task-editor-message').textContent = '';
     }
@@ -285,8 +332,8 @@
           </div>`;
 
         const status = (t.status || '').toLowerCase();
-        if (status.includes('done')) done.appendChild(chip);
-        else if (status.includes('progress') || status.includes('review')) progress.appendChild(chip);
+        if (status.includes('done') || status.includes('заверш')) done.appendChild(chip);
+        else if (status.includes('progress') || status.includes('review') || status.includes('процесс') || status.includes('провер')) progress.appendChild(chip);
         else todo.appendChild(chip);
       });
     }
@@ -317,8 +364,9 @@
       const data = await api('/api/v1/users');
       users = data.items || [];
 
-      fillSelect(document.getElementById('project-curator'), users, 'id', (u) => `${u.full_name} (${u.position})`, true);
-      fillSelect(document.getElementById('task-curator'), users, 'id', (u) => `${u.full_name} (${u.position})`, true);
+      fillSelect(document.getElementById('project-curators'), users, 'id', (u) => `${u.full_name} (${u.position})`, false);
+      fillSelect(document.getElementById('project-assignees'), users, 'id', (u) => `${u.full_name} (${u.position})`, false);
+      fillSelect(document.getElementById('task-curators'), users, 'id', (u) => `${u.full_name} (${u.position})`, false);
       fillSelect(document.getElementById('task-assignees'), users, 'id', (u) => `${u.full_name} (${u.position})`, false);
 
       const tbody = document.querySelector('#users-table tbody');
@@ -330,7 +378,7 @@
           ? `<button class="btn edit-user-btn" data-id="${u.id}">Редактировать</button>
              <button class="btn delete-user-btn" data-id="${u.id}">Удалить</button>`
           : '—';
-        tr.innerHTML = `<td>${u.id}</td><td>${u.login}</td><td>${u.full_name}</td><td>${u.position}</td><td>${u.role}</td><td>Активен</td><td>${actions}</td>`;
+        tr.innerHTML = `<td>${u.id}</td><td>${u.login}</td><td>${u.full_name}</td><td>${u.position}</td><td>${roleLabel(u.role)}</td><td>Активен</td><td>${actions}</td>`;
         tbody.appendChild(tr);
       });
     }
@@ -351,7 +399,7 @@
           ? `<button class="btn edit-project-btn" data-id="${p.id}">Редактировать</button>
              <button class="btn delete-project-btn" data-id="${p.id}">Удалить</button>`
           : '—';
-        tr.innerHTML = `<td>${p.id}</td><td>${p.key}</td><td>${p.name}</td><td>${p.curator_name}</td><td>${actions}</td>`;
+        tr.innerHTML = `<td>${p.id}</td><td>${p.key}</td><td>${p.name}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${actions}</td>`;
         tbody.appendChild(tr);
       });
     }
@@ -371,7 +419,7 @@
           ? `<button class="btn edit-task-btn" data-id="${t.id}">Редактировать</button>
              <button class="btn delete-task-btn" data-id="${t.id}">Удалить</button>`
           : '—';
-        tr.innerHTML = `<td>${t.id}</td><td>${t.key}</td><td>${t.title}</td><td>${t.type}</td><td>${t.status}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${t.curator_name}</td><td>${t.project_key}</td><td>${actions}</td>`;
+        tr.innerHTML = `<td>${t.id}</td><td>${t.key}</td><td>${t.title}</td><td>${typeLabel(t.type)}</td><td>${statusLabel(t.status)}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_key}</td><td>${actions}</td>`;
         tbody.appendChild(tr);
       });
 
@@ -386,7 +434,14 @@
       document.getElementById('project-editor-title').textContent = `Редактирование проекта #${item.id}`;
       document.getElementById('project-key').value = item.key;
       document.getElementById('project-name').value = item.name;
-      document.getElementById('project-curator').value = String(item.curator_user_id);
+      const projectCurators = new Set((item.curators || []).map(u => Number(u.id)));
+      const projectAssignees = new Set((item.assignees || []).map(u => Number(u.id)));
+      Array.from(document.getElementById('project-curators').options).forEach(o => {
+        o.selected = projectCurators.has(Number(o.value));
+      });
+      Array.from(document.getElementById('project-assignees').options).forEach(o => {
+        o.selected = projectAssignees.has(Number(o.value));
+      });
       setView('projects');
     }
 
@@ -402,9 +457,12 @@
       document.getElementById('task-type').value = item.type;
       document.getElementById('task-status').value = item.status;
       document.getElementById('task-priority').value = item.priority;
-      document.getElementById('task-curator').value = String(item.curator_user_id);
       document.getElementById('task-due-date').value = item.due_date || '';
       document.getElementById('task-description').value = item.description || '';
+      const curatorSelected = new Set((item.curators || []).map(c => Number(c.id)));
+      Array.from(document.getElementById('task-curators').options).forEach(o => {
+        o.selected = curatorSelected.has(Number(o.value));
+      });
       const selected = new Set((item.assignees || []).map(a => Number(a.id)));
       Array.from(document.getElementById('task-assignees').options).forEach(o => {
         o.selected = selected.has(Number(o.value));
@@ -425,15 +483,20 @@
     }
 
     async function saveProject() {
+      const curatorIDs = selectedIDs('project-curators');
+      const assigneeIDs = selectedIDs('project-assignees');
       const payload = {
         key: document.getElementById('project-key').value.trim(),
         name: document.getElementById('project-name').value.trim(),
-        curator_id: Number(document.getElementById('project-curator').value)
+        curator_ids: curatorIDs,
+        assignee_ids: assigneeIDs
       };
       const msg = document.getElementById('project-editor-message');
       try {
         if (!canManage) throw new Error('Недостаточно прав');
-        if (!payload.key || !payload.name || !payload.curator_id) throw new Error('Заполните поля проекта');
+        if (!payload.key || !payload.name) throw new Error('Заполните поля проекта');
+        if (curatorIDs.length < 1 || curatorIDs.length > 5) throw new Error('Выберите от 1 до 5 кураторов');
+        if (assigneeIDs.length < 1 || assigneeIDs.length > 5) throw new Error('Выберите от 1 до 5 исполнителей');
         if (editingProjectID) {
           await api(`/api/v1/projects/${editingProjectID}`, { method: 'PUT', body: JSON.stringify(payload) });
           msg.textContent = 'Проект обновлен';
@@ -448,6 +511,7 @@
 
     async function saveTask() {
       const assigneeIDs = Array.from(document.getElementById('task-assignees').selectedOptions).map(o => Number(o.value));
+      const curatorIDs = Array.from(document.getElementById('task-curators').selectedOptions).map(o => Number(o.value));
       const payload = {
         key: document.getElementById('task-key').value.trim(),
         title: document.getElementById('task-title').value.trim(),
@@ -456,14 +520,16 @@
         status: document.getElementById('task-status').value,
         priority: document.getElementById('task-priority').value,
         project_id: Number(document.getElementById('task-project').value),
-        curator_id: Number(document.getElementById('task-curator').value),
+        curator_ids: curatorIDs,
         assignee_ids: assigneeIDs,
         due_date: toIsoDate(document.getElementById('task-due-date').value)
       };
       const msg = document.getElementById('task-editor-message');
       try {
         if (!canManage) throw new Error('Недостаточно прав');
-        if (!payload.key || !payload.title || !payload.project_id || !payload.curator_id) throw new Error('Заполните обязательные поля задачи');
+        if (!payload.key || !payload.title || !payload.project_id) throw new Error('Заполните обязательные поля задачи');
+        if (curatorIDs.length < 1 || curatorIDs.length > 5) throw new Error('Выберите от 1 до 5 кураторов');
+        if (assigneeIDs.length < 1 || assigneeIDs.length > 5) throw new Error('Выберите от 1 до 5 исполнителей');
         if (editingTaskID) {
           await api(`/api/v1/tasks/${editingTaskID}`, { method: 'PUT', body: JSON.stringify(payload) });
           msg.textContent = 'Задача обновлена';
@@ -561,6 +627,10 @@
     document.getElementById('save-settings-general-btn')?.addEventListener('click', saveGeneralSettings);
     document.getElementById('save-settings-security-btn')?.addEventListener('click', saveSecuritySettings);
     document.getElementById('save-settings-notify-btn')?.addEventListener('click', saveNotifySettings);
+    bindMultiLimit('project-curators', 5);
+    bindMultiLimit('project-assignees', 5);
+    bindMultiLimit('task-curators', 5);
+    bindMultiLimit('task-assignees', 5);
 
     try {
       await loadUsers();

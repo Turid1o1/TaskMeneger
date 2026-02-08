@@ -77,6 +77,30 @@ CREATE TABLE IF NOT EXISTS task_assignees (
   FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE,
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS task_curators (
+  task_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (task_id, user_id),
+  FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS project_curators (
+  project_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (project_id, user_id),
+  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS project_assignees (
+  project_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (project_id, user_id),
+  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
 `
 
 	if _, err := db.Exec(schema); err != nil {
@@ -130,6 +154,33 @@ INSERT OR IGNORE INTO task_assignees (task_id, user_id) VALUES
 `)
 	if err != nil {
 		return fmt.Errorf("seed assignees: %w", err)
+	}
+
+	_, err = db.Exec(`
+INSERT OR IGNORE INTO task_curators (task_id, user_id) VALUES
+  ((SELECT id FROM tasks WHERE key = 'PRJ-145'), (SELECT id FROM users WHERE login = 'manager')),
+  ((SELECT id FROM tasks WHERE key = 'OPS-33'), (SELECT id FROM users WHERE login = 'owner'));
+`)
+	if err != nil {
+		return fmt.Errorf("seed task curators: %w", err)
+	}
+
+	_, err = db.Exec(`
+INSERT OR IGNORE INTO project_curators (project_id, user_id) VALUES
+  ((SELECT id FROM projects WHERE key = 'PRJ'), (SELECT id FROM users WHERE login = 'manager')),
+  ((SELECT id FROM projects WHERE key = 'OPS'), (SELECT id FROM users WHERE login = 'owner'));
+`)
+	if err != nil {
+		return fmt.Errorf("seed project curators: %w", err)
+	}
+
+	_, err = db.Exec(`
+INSERT OR IGNORE INTO project_assignees (project_id, user_id) VALUES
+  ((SELECT id FROM projects WHERE key = 'PRJ'), (SELECT id FROM users WHERE login = 'qa_lead')),
+  ((SELECT id FROM projects WHERE key = 'OPS'), (SELECT id FROM users WHERE login = 'owner'));
+`)
+	if err != nil {
+		return fmt.Errorf("seed project assignees: %w", err)
 	}
 
 	return nil

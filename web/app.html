@@ -14,7 +14,6 @@
       <a class="menu-link" data-view="projects" href="#">Проекты</a>
       <a class="menu-link" data-view="tasks" href="#">Задачи</a>
       <a class="menu-link" data-view="calendar" href="#">Календарь</a>
-      <a class="menu-link" data-view="users" href="#">Пользователи</a>
       <a class="menu-link" data-view="settings" href="#">Настройки</a>
       <a class="menu-link" href="/login.html">Выход</a>
       <div class="nav-user" id="current-user">—</div>
@@ -45,7 +44,7 @@
         <div class="grid-2">
           <button class="info-box settings-link" data-view="settings-general"><h3>Общие</h3><p>Язык, часовой пояс, формат даты</p></button>
           <button class="info-box settings-link" data-view="settings-security"><h3>Безопасность</h3><p>2FA, политика пароля, лимит попыток, сессия</p></button>
-          <button class="info-box settings-link" data-view="settings-notify"><h3>Уведомления</h3><p>Email, in-app, дайджест, просрочки</p></button>
+          <button class="info-box settings-link" data-view="settings-notify"><h3>Уведомления</h3><p>Email, в приложении, дайджест, просрочки</p></button>
           <button class="info-box settings-link" data-view="users"><h3>Пользователи</h3><p>Создание, редактирование, удаление</p></button>
         </div>
       </section>
@@ -82,11 +81,11 @@
       </section>
 
       <section class="view" id="view-settings-notify">
-        <div class="header-row"><div><h1>Уведомления</h1><div class="sub">Email, in-app, дайджест, просрочки</div></div><button class="btn" data-view="settings">Назад</button></div>
+        <div class="header-row"><div><h1>Уведомления</h1><div class="sub">Email, в приложении, дайджест, просрочки</div></div><button class="btn" data-view="settings">Назад</button></div>
         <div class="editor-box">
           <div class="grid-3">
             <div><label>Email</label><select id="settings-email"><option value="on">Включено</option><option value="off">Выключено</option></select></div>
-            <div><label>In-App</label><select id="settings-inapp"><option value="on">Включено</option><option value="off">Выключено</option></select></div>
+            <div><label>В приложении</label><select id="settings-inapp"><option value="on">Включено</option><option value="off">Выключено</option></select></div>
             <div><label>Дайджест</label><select id="settings-digest"><option value="daily">Ежедневно</option><option value="weekly">Еженедельно</option><option value="off">Выключено</option></select></div>
             <div><label>Просрочки</label><select id="settings-overdue"><option value="on">Уведомлять</option><option value="off">Не уведомлять</option></select></div>
           </div>
@@ -110,7 +109,14 @@
           <div class="grid-3">
             <div><label>Ключ</label><input id="project-key" placeholder="PRJ"></div>
             <div><label>Название</label><input id="project-name" placeholder="Название проекта"></div>
-            <div><label>Куратор</label><select id="project-curator"></select></div>
+            <div>
+              <label>Кураторы (1–5)</label>
+              <select id="project-curators" multiple></select>
+            </div>
+            <div>
+              <label>Исполнители (1–5)</label>
+              <select id="project-assignees" multiple></select>
+            </div>
           </div>
           <div class="row-actions">
             <button class="btn primary" id="save-project-btn">Сохранить</button>
@@ -120,7 +126,7 @@
         </div>
 
         <table class="table" id="projects-table">
-          <thead><tr><th>ID</th><th>Ключ</th><th>Название</th><th>Куратор</th><th>Действия</th></tr></thead>
+          <thead><tr><th>ID</th><th>Ключ</th><th>Название</th><th>Кураторы</th><th>Исполнители</th><th>Действия</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>
@@ -128,7 +134,7 @@
       <section class="view" id="view-tasks">
         <div class="header-row"><div><h1>Задачи</h1><div class="sub">Исполнитель и куратор обязательны в каждой задаче</div></div></div>
         <table class="table" id="tasks-table">
-          <thead><tr><th>ID</th><th>Ключ</th><th>Название</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнители</th><th>Куратор</th><th>Проект</th><th>Действия</th></tr></thead>
+          <thead><tr><th>ID</th><th>Ключ</th><th>Название</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнители</th><th>Кураторы</th><th>Проект</th><th>Действия</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>
@@ -141,11 +147,11 @@
             <div><label>Ключ</label><input id="task-key" placeholder="PRJ-100"></div>
             <div><label>Название</label><input id="task-title" placeholder="Название"></div>
             <div><label>Проект</label><select id="task-project"></select></div>
-            <div><label>Тип</label><select id="task-type"><option>Task</option><option>Bug</option><option>Story</option><option>Epic</option></select></div>
-            <div><label>Статус</label><select id="task-status"><option>To Do</option><option>In Progress</option><option>Review</option><option>Done</option></select></div>
-            <div><label>Приоритет</label><select id="task-priority"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></div>
-            <div><label>Куратор</label><select id="task-curator"></select></div>
-            <div><label>Исполнители</label><select id="task-assignees" multiple></select></div>
+            <div><label>Тип</label><select id="task-type"><option value="Task">Задача</option><option value="Bug">Ошибка</option><option value="Story">История</option><option value="Epic">Эпик</option></select></div>
+            <div><label>Статус</label><select id="task-status"><option value="To Do">К выполнению</option><option value="In Progress">В процессе</option><option value="Review">Проверка</option><option value="Done">Завершено</option></select></div>
+            <div><label>Приоритет</label><select id="task-priority"><option value="Low">Низкий</option><option value="Medium">Средний</option><option value="High">Высокий</option><option value="Critical">Критический</option></select></div>
+            <div><label>Кураторы (1–5)</label><select id="task-curators" multiple></select></div>
+            <div><label>Исполнители (1–5)</label><select id="task-assignees" multiple></select></div>
             <div><label>Срок</label><input id="task-due-date" type="date"></div>
           </div>
           <div><label>Описание</label><textarea id="task-description" placeholder="Описание"></textarea></div>
@@ -158,7 +164,7 @@
       </section>
 
       <section class="view" id="view-users">
-        <div class="header-row"><div><h1>Пользователи</h1><div class="sub">Редактирование и удаление пользователей</div></div></div>
+        <div class="header-row"><div><h1>Пользователи</h1><div class="sub">Редактирование и удаление пользователей</div></div><button class="btn" data-view="settings">Назад</button></div>
 
         <div class="editor-box">
           <h3 id="user-editor-title">Редактирование пользователя</h3>
@@ -166,7 +172,7 @@
             <div><label>Логин</label><input id="user-login"></div>
             <div><label>ФИО</label><input id="user-fullname"></div>
             <div><label>Должность</label><input id="user-position"></div>
-            <div><label>Роль</label><select id="user-role"><option>Owner</option><option>Admin</option><option>Project Manager</option><option>Member</option><option>Guest</option></select></div>
+            <div><label>Роль</label><select id="user-role"><option value="Owner">Владелец</option><option value="Admin">Администратор</option><option value="Project Manager">Менеджер проекта</option><option value="Member">Сотрудник</option><option value="Guest">Гость</option></select></div>
           </div>
           <div class="row-actions">
             <button class="btn primary" id="save-user-btn">Сохранить</button>

@@ -160,7 +160,7 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Key == "" || input.Name == "" || input.CuratorID == 0 {
+		if input.Key == "" || input.Name == "" || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
 			return
 		}
@@ -206,7 +206,7 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Key == "" || input.Name == "" || input.CuratorID == 0 {
+		if input.Key == "" || input.Name == "" || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
 			return
 		}
@@ -236,12 +236,15 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": tasks})
 	case http.MethodPost:
+		if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
+			return
+		}
 		var input models.CreateTaskInput
 		if err := decodeJSON(r, &input); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Key == "" || input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || input.CuratorID == 0 {
+		if input.Key == "" || input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
 			return
 		}
@@ -273,7 +276,7 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if input.Key == "" || input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || input.CuratorID == 0 {
+		if input.Key == "" || input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
 			return
 		}

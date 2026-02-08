@@ -20,8 +20,16 @@ git -C "${APP_DIR}" reset --hard origin/main
 
 echo "[2/5] Сборка"
 cd "${APP_DIR}"
-/usr/local/bin/go mod tidy
-/usr/local/bin/go build -o taskflow-server ./cmd/server
+GO_BIN="$(command -v go || true)"
+if [[ -z "${GO_BIN}" && -x /usr/local/go/bin/go ]]; then
+  GO_BIN="/usr/local/go/bin/go"
+fi
+if [[ -z "${GO_BIN}" ]]; then
+  echo "Go не найден. Установите Go или запустите scripts/install_vps.sh"
+  exit 1
+fi
+"${GO_BIN}" mod tidy
+"${GO_BIN}" build -o taskflow-server ./cmd/server
 chmod +x taskflow-server
 
 echo "[3/5] Проверка сервис-файла"
