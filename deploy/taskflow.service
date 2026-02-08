@@ -13,7 +13,7 @@ RestartSec=3
 Environment=APP_ADDR=:8080
 Environment=APP_DB_PATH=/opt/taskflow/data/taskflow.db
 Environment=APP_STATIC_PATH=/opt/taskflow/web
-Environment=APP_AUTH_PEPPER=change-me
+Environment=APP_AUTH_PEPPER=change-me-in-production
 
 [Install]
 WantedBy=multi-user.target

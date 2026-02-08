@@ -87,6 +87,37 @@ ORDER BY id
 	return result, rows.Err()
 }
 
+func (r *Repository) UserByLogin(ctx context.Context, login string) (models.User, error) {
+	var u models.User
+	err := r.db.QueryRowContext(ctx, `
+SELECT id, login, full_name, position, role
+FROM users
+WHERE login = ?
+`, strings.TrimSpace(login)).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, errors.New("пользователь не найден")
+		}
+		return models.User{}, fmt.Errorf("query user by login: %w", err)
+	}
+	return u, nil
+}
+
+func (r *Repository) UpdateUserRole(ctx context.Context, userID int64, role string) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE users SET role = ? WHERE id = ?`, strings.TrimSpace(role), userID)
+	if err != nil {
+		return fmt.Errorf("update user role: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("пользователь не найден")
+	}
+	return nil
+}
+
 func (r *Repository) Projects(ctx context.Context) ([]models.Project, error) {
 	rows, err := r.db.QueryContext(ctx, `
 SELECT p.id, p.key, p.name, p.curator_user_id, u.full_name
@@ -108,6 +139,78 @@ ORDER BY p.id
 		result = append(result, p)
 	}
 	return result, rows.Err()
+}
+
+func (r *Repository) CreateProject(ctx context.Context, in models.CreateProjectInput) error {
+	_, err := r.db.ExecContext(ctx, `
+INSERT INTO projects (key, name, curator_user_id)
+VALUES (?, ?, ?)
+`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Name), in.CuratorID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return errors.New("ключ проекта уже существует")
+		}
+		return fmt.Errorf("insert project: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) UpdateProject(ctx context.Context, projectID int64, in models.UpdateProjectInput) error {
+	res, err := r.db.ExecContext(ctx, `
+UPDATE projects
+SET key = ?, name = ?, curator_user_id = ?
+WHERE id = ?
+`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Name), in.CuratorID, projectID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return errors.New("ключ проекта уже существует")
+		}
+		return fmt.Errorf("update project: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("проект не найден")
+	}
+	return nil
+}
+
+func (r *Repository) DeleteProject(ctx context.Context, projectID int64) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `
+DELETE FROM task_assignees
+WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)
+`, projectID); err != nil {
+		return fmt.Errorf("delete task assignees by project: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM tasks WHERE project_id = ?`, projectID); err != nil {
+		return fmt.Errorf("delete tasks by project: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM projects WHERE id = ?`, projectID)
+	if err != nil {
+		return fmt.Errorf("delete project: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("проект не найден")
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+	return nil
 }
 
 func (r *Repository) Tasks(ctx context.Context, projectID *int64) ([]models.Task, error) {

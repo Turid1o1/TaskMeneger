@@ -57,3 +57,19 @@ type CreateTaskInput struct {
 	AssigneeIDs  []int64 `json:"assignee_ids"`
 	DueDate      *string `json:"due_date"`
 }
+
+type CreateProjectInput struct {
+	Key       string `json:"key"`
+	Name      string `json:"name"`
+	CuratorID int64  `json:"curator_id"`
+}
+
+type UpdateProjectInput struct {
+	Key       string `json:"key"`
+	Name      string `json:"name"`
+	CuratorID int64  `json:"curator_id"`
+}
+
+type UpdateUserRoleInput struct {
+	Role string `json:"role"`
+}

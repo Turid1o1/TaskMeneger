@@ -36,6 +36,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/auth/register", s.register)
 	s.mux.HandleFunc("/api/v1/auth/login", s.login)
 	s.mux.HandleFunc("/api/v1/users", s.users)
+	s.mux.HandleFunc("/api/v1/users/", s.userRole)
 	s.mux.HandleFunc("/api/v1/projects", s.projects)
 	s.mux.HandleFunc("/api/v1/projects/", s.projectTasks)
 	s.mux.HandleFunc("/api/v1/tasks", s.tasks)
@@ -82,6 +83,38 @@ func parseProjectID(path string) (int64, bool) {
 		return 0, false
 	}
 	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "projects" || parts[4] != "tasks" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
+func parseProjectEntityID(path string) (int64, bool) {
+	// /api/v1/projects/{id}
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 4 {
+		return 0, false
+	}
+	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "projects" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
+func parseUserRolePath(path string) (int64, bool) {
+	// /api/v1/users/{id}/role
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 5 {
+		return 0, false
+	}
+	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "users" || parts[4] != "role" {
 		return 0, false
 	}
 	id, err := strconv.ParseInt(parts[3], 10, 64)

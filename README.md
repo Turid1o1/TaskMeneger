@@ -1,99 +1,72 @@
 # TaskFlow (Go + SQLite + Nginx)
 
-Готовый MVP Task Manager:
-- Backend: Go (REST API)
+MVP Task Manager:
+- Backend: Go REST API
 - DB: SQLite
 - Frontend: HTML/CSS/JS (SPA)
-- Reverse proxy: Nginx
+- Deploy: systemd + Nginx
 
-## Что уже реализовано
-- Страница входа: `/login.html`
-- Страница регистрации: `/register.html`
-  - Поля: логин, пароль, повтор пароля, ФИО, должность
-- После регистрации пользователь появляется:
-  - в разделе `Пользователи`
-  - в выпадающих списках `Куратор` и `Исполнители` при создании задачи
-- Раздел `Проекты` + проваливание в задачи проекта
-- Раздел `Задачи` с информативными полями (включая кураторов и исполнителей)
-- Раздел `Настройки`
+## Тестовые креды
+- `admin / admin123` — полный доступ (Admin)
+- `manager / admin123` — менеджер (Project Manager)
+- `owner / admin123` — владелец (Owner)
 
-## Запуск локально
-Требования:
-1. Go 1.22+
-2. Linux/macOS
+## Что реализовано
+- Вход/регистрация
+- Пользователи и роли (назначение ролей доступно Owner/Admin/Project Manager)
+- Проекты: создание, редактирование, удаление
+- Задачи: создание, список, фильтрация по проекту
+- Выбор куратора/исполнителей из зарегистрированных пользователей
 
-Команды:
+## Быстрый запуск локально
 ```bash
 go mod tidy
 go run ./cmd/server
 ```
 
-Приложение поднимется на `http://localhost:8080`.
+Открыть: `http://localhost:8080`
 
-Тестовые пользователи после первого старта:
-- `owner`
-- `pm`
-- `qa_lead`
-
-Пароль по умолчанию для тестовых пользователей: `admin123`
-
-## API (основное)
+## API
 - `GET /api/v1/health`
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `GET /api/v1/users`
+- `PATCH /api/v1/users/{id}/role`
 - `GET /api/v1/projects`
+- `POST /api/v1/projects`
+- `PUT /api/v1/projects/{id}`
+- `DELETE /api/v1/projects/{id}`
 - `GET /api/v1/projects/{id}/tasks`
 - `GET /api/v1/tasks`
 - `POST /api/v1/tasks`
 
-## Деплой на хост с Nginx
+Для операций управления нужен заголовок `X-Actor-Login` (клиент добавляет автоматически после входа).
 
-### 1) Сборка
+## Скрипты для VPS
+
+### Первичная установка на новую VPS
 ```bash
-go mod tidy
-go build -o taskflow-server ./cmd/server
+sudo bash /opt/taskflow/scripts/install_vps.sh
 ```
 
-### 2) Копирование на сервер
-Скопируйте в `/opt/taskflow`:
-- `taskflow-server`
-- папку `web`
-- папку `deploy`
-
-### 3) systemd
+Если репозиторий еще не клонирован, можно так:
 ```bash
-sudo cp /opt/taskflow/deploy/taskflow.service /etc/systemd/system/taskflow.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now taskflow.service
-sudo systemctl status taskflow.service
+git clone https://github.com/Turid1o1/TaskMeneger.git /opt/taskflow
+sudo bash /opt/taskflow/scripts/install_vps.sh
 ```
 
-### 4) Nginx
+### Обновление существующей установки
 ```bash
-sudo cp /opt/taskflow/deploy/nginx-taskflow.conf /etc/nginx/sites-available/taskflow
-sudo ln -s /etc/nginx/sites-available/taskflow /etc/nginx/sites-enabled/taskflow
-sudo nginx -t
-sudo systemctl reload nginx
+sudo bash /opt/taskflow/scripts/update_vps.sh
 ```
 
-## Структура проекта
-- `cmd/server` — точка входа
-- `internal/config` — конфиг из env
-- `internal/db` — SQLite + миграции + сиды
-- `internal/repo` — работа с БД
-- `internal/httpapi` — HTTP handlers
-- `web` — клиент
-- `deploy` — Nginx + systemd
+## Структура
+- `cmd/server` — запуск API
+- `internal/*` — backend логика
+- `web` — frontend
+- `deploy` — systemd/nginx конфиги
+- `scripts` — install/update для VPS
 
-## Что такое "ключ"
-`Ключ` — уникальный идентификатор сущности в удобном читаемом формате.
-Пример для задачи: `PRJ-145`.
-- `PRJ` — код проекта
-- `145` — номер задачи
-
-Ключ нужен для быстрого поиска, ссылок в переписке, интеграций с Git/CI и отслеживания истории.
-
-## Важно по безопасности
-В MVP используется простой алгоритм хеширования паролей на основе `SHA-256 + pepper`.
-Для production рекомендовано заменить на `bcrypt/argon2`.
+## Что такое ключ
+`Ключ` — человекочитаемый уникальный идентификатор.
+Пример: `PRJ-145` (`PRJ` — проект, `145` — номер задачи).
