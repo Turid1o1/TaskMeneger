@@ -1198,7 +1198,7 @@ WHERE t.id = ?
 
 func (r *Repository) DepartmentMessages(ctx context.Context, departmentID int64) ([]models.ChatMessage, error) {
 	rows, err := r.db.QueryContext(ctx, `
-SELECT m.id, m.scope_type, m.scope_id, m.author_user_id, u.full_name, m.body, m.created_at
+SELECT m.id, m.scope_type, m.scope_id, m.author_user_id, u.full_name, m.body, m.file_name, m.created_at
 FROM chat_messages m
 JOIN users u ON u.id = m.author_user_id
 WHERE m.scope_type = 'department' AND m.scope_id = ?
@@ -1212,8 +1212,11 @@ ORDER BY m.id ASC
 	items := make([]models.ChatMessage, 0)
 	for rows.Next() {
 		var m models.ChatMessage
-		if err := rows.Scan(&m.ID, &m.ScopeType, &m.ScopeID, &m.AuthorID, &m.AuthorName, &m.Body, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.ScopeType, &m.ScopeID, &m.AuthorID, &m.AuthorName, &m.Body, &m.FileName, &m.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan department message: %w", err)
+		}
+		if strings.TrimSpace(m.FileName) != "" {
+			m.FileURL = fmt.Sprintf("/api/v1/messages/file/%d", m.ID)
 		}
 		items = append(items, m)
 	}
@@ -1222,7 +1225,7 @@ ORDER BY m.id ASC
 
 func (r *Repository) TaskMessages(ctx context.Context, taskID int64) ([]models.ChatMessage, error) {
 	rows, err := r.db.QueryContext(ctx, `
-SELECT m.id, m.scope_type, m.scope_id, m.author_user_id, u.full_name, m.body, m.created_at
+SELECT m.id, m.scope_type, m.scope_id, m.author_user_id, u.full_name, m.body, m.file_name, m.created_at
 FROM chat_messages m
 JOIN users u ON u.id = m.author_user_id
 WHERE m.scope_type = 'task' AND m.scope_id = ?
@@ -1236,34 +1239,73 @@ ORDER BY m.id ASC
 	items := make([]models.ChatMessage, 0)
 	for rows.Next() {
 		var m models.ChatMessage
-		if err := rows.Scan(&m.ID, &m.ScopeType, &m.ScopeID, &m.AuthorID, &m.AuthorName, &m.Body, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.ScopeType, &m.ScopeID, &m.AuthorID, &m.AuthorName, &m.Body, &m.FileName, &m.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan task message: %w", err)
+		}
+		if strings.TrimSpace(m.FileName) != "" {
+			m.FileURL = fmt.Sprintf("/api/v1/messages/file/%d", m.ID)
 		}
 		items = append(items, m)
 	}
 	return items, rows.Err()
 }
 
-func (r *Repository) CreateDepartmentMessage(ctx context.Context, departmentID, authorID int64, body string) error {
+func (r *Repository) CreateDepartmentMessage(ctx context.Context, departmentID, authorID int64, body, fileName, filePath string, fileSize int64) error {
 	_, err := r.db.ExecContext(ctx, `
-INSERT INTO chat_messages (scope_type, scope_id, author_user_id, body)
-VALUES ('department', ?, ?, ?)
-`, departmentID, authorID, strings.TrimSpace(body))
+INSERT INTO chat_messages (scope_type, scope_id, author_user_id, body, file_name, file_path, file_size)
+VALUES ('department', ?, ?, ?, ?, ?, ?)
+`, departmentID, authorID, strings.TrimSpace(body), strings.TrimSpace(fileName), strings.TrimSpace(filePath), fileSize)
 	if err != nil {
 		return fmt.Errorf("insert department message: %w", err)
 	}
 	return nil
 }
 
-func (r *Repository) CreateTaskMessage(ctx context.Context, taskID, authorID int64, body string) error {
+func (r *Repository) CreateTaskMessage(ctx context.Context, taskID, authorID int64, body, fileName, filePath string, fileSize int64) error {
 	_, err := r.db.ExecContext(ctx, `
-INSERT INTO chat_messages (scope_type, scope_id, author_user_id, body)
-VALUES ('task', ?, ?, ?)
-`, taskID, authorID, strings.TrimSpace(body))
+INSERT INTO chat_messages (scope_type, scope_id, author_user_id, body, file_name, file_path, file_size)
+VALUES ('task', ?, ?, ?, ?, ?, ?)
+`, taskID, authorID, strings.TrimSpace(body), strings.TrimSpace(fileName), strings.TrimSpace(filePath), fileSize)
 	if err != nil {
 		return fmt.Errorf("insert task message: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) SaveChatFile(baseDir, originalName string, content []byte) (string, int64, error) {
+	if len(content) == 0 {
+		return "", 0, nil
+	}
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		return "", 0, fmt.Errorf("create messages dir: %w", err)
+	}
+	ext := filepath.Ext(originalName)
+	filename := fmt.Sprintf("msg_%d%s", time.Now().UnixNano(), ext)
+	fullPath := filepath.Join(baseDir, filename)
+	if err := os.WriteFile(fullPath, content, 0o644); err != nil {
+		return "", 0, fmt.Errorf("save message file: %w", err)
+	}
+	return fullPath, int64(len(content)), nil
+}
+
+func (r *Repository) MessageFilePath(ctx context.Context, messageID int64) (string, string, int64, int64, error) {
+	var scopeID, fileSize int64
+	var filePath, fileName string
+	err := r.db.QueryRowContext(ctx, `
+SELECT scope_id, file_path, file_name, file_size
+FROM chat_messages
+WHERE id = ? AND scope_type = 'task'
+`, messageID).Scan(&scopeID, &filePath, &fileName, &fileSize)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, "", "", 0, errors.New("сообщение не найдено")
+		}
+		return 0, "", "", 0, fmt.Errorf("get message file: %w", err)
+	}
+	if strings.TrimSpace(filePath) == "" {
+		return 0, "", "", 0, errors.New("вложение не найдено")
+	}
+	return scopeID, filePath, fileName, fileSize, nil
 }
 
 func (r *Repository) taskAssignees(ctx context.Context, taskID int64) ([]models.User, error) {

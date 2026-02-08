@@ -40,10 +40,10 @@ body {
   min-height: 100vh;
   padding: 0;
   background:
-    radial-gradient(900px 560px at 78% 52%, rgba(160, 205, 255, 0.3) 0%, rgba(39, 82, 146, 0.18) 48%, rgba(10, 26, 51, 0) 100%),
-    linear-gradient(90deg, rgba(8, 20, 38, 0.56) 0%, rgba(13, 33, 61, 0.34) 40%, rgba(25, 64, 114, 0.22) 100%),
-    linear-gradient(90deg, rgba(8, 20, 38, 0.9) 0%, rgba(8, 20, 38, 0.18) 20%, rgba(8, 20, 38, 0) 34%),
-    url("/assets/login-hero.png") 8% center / auto 100% no-repeat,
+    radial-gradient(960px 620px at 72% 54%, rgba(160, 205, 255, 0.34) 0%, rgba(39, 82, 146, 0.16) 48%, rgba(10, 26, 51, 0) 100%),
+    linear-gradient(90deg, rgba(8, 20, 38, 0.68) 0%, rgba(13, 33, 61, 0.28) 41%, rgba(25, 64, 114, 0.12) 100%),
+    linear-gradient(90deg, rgba(8, 20, 38, 0.86) 0%, rgba(8, 20, 38, 0.18) 32%, rgba(8, 20, 38, 0) 56%),
+    url("/assets/login-hero.png") -2% center / auto 100% no-repeat,
     #0a1a33;
   overflow: hidden;
 }
@@ -61,8 +61,8 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(9, 25, 47, 0.08) 18%, rgba(11, 31, 58, 0.45) 42%, rgba(11, 31, 58, 0.14) 60%, rgba(11, 31, 58, 0) 75%);
-  backdrop-filter: blur(1.4px);
+  background: linear-gradient(90deg, rgba(9, 25, 47, 0.02) 12%, rgba(11, 31, 58, 0.36) 42%, rgba(11, 31, 58, 0.12) 62%, rgba(11, 31, 58, 0) 82%);
+  backdrop-filter: blur(1.2px);
 }
 .login-visual {
   display: none;
@@ -84,28 +84,36 @@ body {
   position: relative;
   z-index: 1;
 }
+.register-page .login-panel {
+  width: min(680px, 44vw);
+}
 .auth-card {
   width: min(680px, 100%);
-  max-height: calc(100vh - 56px);
+  max-height: calc(100vh - 36px);
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(232, 241, 255, 0.32), rgba(212, 226, 248, 0.24));
   border: 1.5px solid rgba(238, 247, 255, 0.66);
   border-radius: 28px;
-  padding: clamp(18px, 1.8vw, 28px);
+  padding: clamp(18px, 1.75vw, 26px);
   box-shadow:
     0 16px 44px rgba(6, 17, 38, 0.36),
     inset 0 0 0 1px rgba(255,255,255,0.2),
     inset 0 24px 40px rgba(255,255,255,0.08);
   backdrop-filter: blur(14px);
 }
-.register-page .auth-card { max-height: calc(100vh - 64px); }
+.register-page .auth-card { max-height: calc(100vh - 24px); }
+.register-page .auth-card h1 {
+  font-size: clamp(28px, 2.15vw, 40px);
+}
 .register-page .auth-card label {
-  font-size: 14px;
+  font-size: 12px;
+  margin-bottom: 3px;
 }
 .register-page .auth-input {
-  padding: 8px var(--space-12);
-  margin-bottom: 6px;
+  padding: 6px var(--space-12);
+  margin-bottom: 4px;
+  font-size: 15px;
 }
 @media (max-height: 920px) {
   .register-page .auth-card {
@@ -152,6 +160,7 @@ body {
   color: #112c54;
   font-weight: 500;
 }
+.auth-input::placeholder { color: #6e7f9d; }
 .auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); margin-top: var(--space-8); }
 .auth-btn {
   border: 0;
@@ -449,9 +458,36 @@ textarea { min-height: 90px; }
   white-space: pre-wrap;
   word-break: break-word;
 }
-#view-messenger .row-actions input {
+#view-messenger .row-actions input,
+#view-task-chat .row-actions input[type="text"] {
   flex: 1;
 }
+.chat-msg-file {
+  margin-top: var(--space-8);
+  font-size: 13px;
+}
+.chat-msg-file a {
+  color: #1d4ed8;
+  text-decoration: none;
+}
+.chat-msg-file a:hover { text-decoration: underline; }
+.task-chat-shell {
+  height: calc(100vh - 220px);
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+}
+.task-chat-log-full {
+  flex: 1;
+  height: auto;
+  min-height: 360px;
+}
+.task-chat-input-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+}
+#task-chat-full-file { width: 240px; }
 
 .table {
   width: 100%; border-collapse: separate; border-spacing: 0; margin-top: var(--space-12);
@@ -611,6 +647,7 @@ textarea { min-height: 90px; }
 
 @media (max-width: 1400px) {
   .login-panel { width: min(600px, 48vw); }
+  .register-page .login-panel { width: min(620px, 48vw); }
   .auth-card h1 { font-size: clamp(30px, 2.8vw, 44px); }
   .auth-card label { font-size: 16px; }
   .auth-input { font-size: 16px; padding: 10px 12px; }
@@ -621,8 +658,10 @@ textarea { min-height: 90px; }
   .kanban-grid { grid-template-columns: 1fr; }
   .grid-3 { grid-template-columns: 1fr 1fr; }
   .login-panel { width: min(560px, 54vw); }
+  .register-page .login-panel { width: min(560px, 54vw); }
   .auth-card h1 { font-size: clamp(28px, 3.8vw, 42px); }
   .auth-sub { font-size: clamp(15px, 1.8vw, 22px); }
+  .task-chat-shell { height: calc(100vh - 190px); min-height: 460px; }
 }
 
 @media (max-width: 860px) {
@@ -640,4 +679,6 @@ textarea { min-height: 90px; }
   .auth-card { width: 100%; max-height: none; }
   .auth-card h1 { font-size: clamp(28px, 8.2vw, 40px); }
   .auth-sub { font-size: clamp(15px, 4.8vw, 22px); }
+  .task-chat-input-row { grid-template-columns: 1fr; }
+  #task-chat-full-file { width: 100%; }
 }

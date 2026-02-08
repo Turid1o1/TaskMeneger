@@ -49,6 +49,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/reports/", s.reportFile)
 	s.mux.HandleFunc("/api/v1/messages/department", s.departmentMessages)
 	s.mux.HandleFunc("/api/v1/messages/task", s.taskMessages)
+	s.mux.HandleFunc("/api/v1/messages/file/", s.messageFile)
 
 	fs := http.FileServer(http.Dir(s.staticPath))
 	s.mux.Handle("/", fs)
@@ -207,6 +208,22 @@ func parseReportFilePath(path string) (int64, bool) {
 		return 0, false
 	}
 	id, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
+func parseMessageFilePath(path string) (int64, bool) {
+	// /api/v1/messages/file/{id}
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 5 {
+		return 0, false
+	}
+	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "messages" || parts[3] != "file" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[4], 10, 64)
 	if err != nil {
 		return 0, false
 	}

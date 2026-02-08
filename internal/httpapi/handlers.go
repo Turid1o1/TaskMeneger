@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/mvd/taskflow/internal/models"
 )
+
+const maxTaskChatAttachmentBytes = 25 * 1024 * 1024
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -983,7 +986,7 @@ func (s *Server) departmentMessages(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "доступ только к чату своего отдела")
 			return
 		}
-		if err := s.repo.CreateDepartmentMessage(r.Context(), targetDepartmentID, actor.ID, in.Body); err != nil {
+		if err := s.repo.CreateDepartmentMessage(r.Context(), targetDepartmentID, actor.ID, in.Body, "", "", 0); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -1026,22 +1029,76 @@ func (s *Server) taskMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": items})
 	case http.MethodPost:
-		var in struct {
-			TaskID int64  `json:"task_id"`
-			Body   string `json:"body"`
-		}
-		if err := decodeJSON(r, &in); err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
 		targetTaskID := *taskID
-		if in.TaskID > 0 {
-			targetTaskID = in.TaskID
+		body := ""
+		fileName := ""
+		filePath := ""
+		var fileSize int64
+
+		contentType := strings.ToLower(r.Header.Get("Content-Type"))
+		if strings.Contains(contentType, "multipart/form-data") {
+			if err := r.ParseMultipartForm(maxTaskChatAttachmentBytes + (1 << 20)); err != nil {
+				writeError(w, http.StatusBadRequest, "не удалось обработать форму")
+				return
+			}
+			if rawTaskID := strings.TrimSpace(r.FormValue("task_id")); rawTaskID != "" {
+				taskValue, err := strconv.ParseInt(rawTaskID, 10, 64)
+				if err != nil || taskValue <= 0 {
+					writeError(w, http.StatusBadRequest, "некорректный task_id")
+					return
+				}
+				targetTaskID = taskValue
+			}
+			body = strings.TrimSpace(r.FormValue("body"))
+
+			file, header, err := r.FormFile("file")
+			if err != nil && !errors.Is(err, http.ErrMissingFile) {
+				writeError(w, http.StatusBadRequest, "не удалось прочитать вложение")
+				return
+			}
+			if err == nil {
+				defer file.Close()
+				data, err := io.ReadAll(io.LimitReader(file, maxTaskChatAttachmentBytes+1))
+				if err != nil {
+					writeError(w, http.StatusBadRequest, "не удалось прочитать вложение")
+					return
+				}
+				if int64(len(data)) > maxTaskChatAttachmentBytes {
+					writeError(w, http.StatusBadRequest, "слишком большой файл")
+					return
+				}
+				if len(data) > 0 {
+					baseDir := filepath.Join(filepath.Dir(s.staticPath), "data", "messages")
+					savedPath, size, err := s.repo.SaveChatFile(baseDir, header.Filename, data)
+					if err != nil {
+						writeError(w, http.StatusInternalServerError, err.Error())
+						return
+					}
+					fileName = header.Filename
+					filePath = savedPath
+					fileSize = size
+				}
+			}
+		} else {
+			var in struct {
+				TaskID int64  `json:"task_id"`
+				Body   string `json:"body"`
+			}
+			if err := decodeJSON(r, &in); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			if in.TaskID > 0 {
+				targetTaskID = in.TaskID
+			}
+			body = strings.TrimSpace(in.Body)
 		}
-		if strings.TrimSpace(in.Body) == "" {
-			writeError(w, http.StatusBadRequest, "текст сообщения пуст")
+
+		if body == "" && filePath == "" {
+			writeError(w, http.StatusBadRequest, "заполните сообщение")
 			return
 		}
+
 		targetDepartmentID, err := s.repo.TaskDepartmentID(r.Context(), targetTaskID)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -1051,7 +1108,7 @@ func (s *Server) taskMessages(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "доступ только к задачам своего отдела")
 			return
 		}
-		if err := s.repo.CreateTaskMessage(r.Context(), targetTaskID, actor.ID, in.Body); err != nil {
+		if err := s.repo.CreateTaskMessage(r.Context(), targetTaskID, actor.ID, body, fileName, filePath, fileSize); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -1059,6 +1116,51 @@ func (s *Server) taskMessages(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func (s *Server) messageFile(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	messageID, ok := parseMessageFilePath(r.URL.Path)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	taskID, filePath, fileName, _, err := s.repo.MessageFilePath(r.Context(), messageID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	departmentID, err := s.repo.TaskDepartmentID(r.Context(), taskID)
+	if err != nil {
+		writeError(w, http.StatusForbidden, "нет доступа")
+		return
+	}
+	if !isSuperRole(actor.Role) && actor.DepartmentID != departmentID {
+		writeError(w, http.StatusForbidden, "нет доступа")
+		return
+	}
+
+	fd, err := os.Open(filePath)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "файл не найден")
+		return
+	}
+	defer fd.Close()
+	stat, err := fd.Stat()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "не удалось прочитать файл")
+		return
+	}
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
+	http.ServeContent(w, r, fileName, stat.ModTime(), fd)
 }
 
 func (s *Server) reportFile(w http.ResponseWriter, r *http.Request) {

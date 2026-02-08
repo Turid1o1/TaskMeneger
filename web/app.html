@@ -124,34 +124,39 @@
         <div class="header-row">
           <div><h1>Мессенджер</h1></div>
         </div>
-        <div class="grid-2">
-          <div class="editor-box">
-            <div class="header-row">
-              <div><h3>Чат отдела</h3></div>
-              <div class="toolbar">
-                <select id="messenger-department-select"></select>
-                <button class="btn btn-sm btn-secondary" id="messenger-refresh-department-btn">Обновить</button>
-              </div>
-            </div>
-            <div class="chat-log" id="department-chat-log"></div>
-            <div class="row-actions">
-              <input id="department-chat-input" placeholder="Сообщение в чат отдела">
-              <button class="btn btn-md btn-primary" id="send-department-message-btn">Отправить</button>
+        <div class="editor-box">
+          <div class="header-row">
+            <div><h3>Чат отдела</h3></div>
+            <div class="toolbar">
+              <select id="messenger-department-select"></select>
+              <button class="btn btn-sm btn-secondary" id="messenger-refresh-department-btn">Обновить</button>
             </div>
           </div>
-          <div class="editor-box">
-            <div class="header-row">
-              <div><h3>Чат задачи</h3></div>
-              <div class="toolbar">
-                <select id="messenger-task-select"></select>
-                <button class="btn btn-sm btn-secondary" id="messenger-refresh-task-btn">Обновить</button>
-              </div>
-            </div>
-            <div class="chat-log" id="task-chat-log"></div>
-            <div class="row-actions">
-              <input id="task-chat-input" placeholder="Сообщение в чат задачи">
-              <button class="btn btn-md btn-primary" id="send-task-message-btn">Отправить</button>
-            </div>
+          <div class="chat-log" id="department-chat-log"></div>
+          <div class="row-actions">
+            <input id="department-chat-input" placeholder="Сообщение в чат отдела">
+            <button class="btn btn-md btn-primary" id="send-department-message-btn">Отправить</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-task-chat">
+        <div class="header-row">
+          <div>
+            <h1 id="task-chat-title">Чат задачи</h1>
+            <div class="sub" id="task-chat-subtitle"></div>
+          </div>
+          <div class="toolbar">
+            <button class="btn btn-sm btn-secondary" id="task-chat-refresh-btn">Обновить</button>
+            <button class="btn btn-sm btn-secondary" id="task-chat-back-btn">Назад</button>
+          </div>
+        </div>
+        <div class="editor-box task-chat-shell">
+          <div class="chat-log task-chat-log-full" id="task-chat-full-log"></div>
+          <div class="row-actions task-chat-input-row">
+            <input id="task-chat-full-input" placeholder="Сообщение в чат задачи">
+            <input id="task-chat-full-file" type="file">
+            <button class="btn btn-md btn-primary" id="send-task-chat-full-btn">Отправить</button>
           </div>
         </div>
       </section>

@@ -154,6 +154,15 @@ CREATE INDEX IF NOT EXISTS idx_chat_scope_created ON chat_messages(scope_type, s
 	if err := addColumnIfMissing(db, "reports", "result_status", "TEXT NOT NULL DEFAULT 'Завершено'"); err != nil {
 		return fmt.Errorf("add reports.result_status: %w", err)
 	}
+	if err := addColumnIfMissing(db, "chat_messages", "file_name", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return fmt.Errorf("add chat_messages.file_name: %w", err)
+	}
+	if err := addColumnIfMissing(db, "chat_messages", "file_path", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return fmt.Errorf("add chat_messages.file_path: %w", err)
+	}
+	if err := addColumnIfMissing(db, "chat_messages", "file_size", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return fmt.Errorf("add chat_messages.file_size: %w", err)
+	}
 	if _, err := db.Exec(`UPDATE projects SET status = 'Активен' WHERE status IS NULL OR status = ''`); err != nil {
 		return fmt.Errorf("normalize projects.status: %w", err)
 	}

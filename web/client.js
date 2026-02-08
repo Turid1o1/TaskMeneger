@@ -248,6 +248,10 @@
       .replaceAll("'", '&#39;');
   }
 
+  function escapeAttr(value) {
+    return escapeHTML(value);
+  }
+
   function ellipsisListHTML(items, valueFn, emptyLabel) {
     if (!items || !items.length) return `<li>${emptyLabel}</li>`;
     return items.map((item) => {
@@ -774,12 +778,16 @@
       items.forEach((m) => {
         const el = document.createElement('article');
         el.className = 'chat-msg';
+        const fileHTML = m.file_url
+          ? `<div class="chat-msg-file"><a href="${escapeAttr(m.file_url)}" target="_blank" rel="noopener">📎 ${escapeHTML(m.file_name || 'Вложение')}</a></div>`
+          : '';
         el.innerHTML = `
           <div class="chat-msg-head">
             <strong>${escapeHTML(m.author_name || 'Пользователь')}</strong>
             <span>${escapeHTML(m.created_at || '')}</span>
           </div>
           <div class="chat-msg-body">${escapeHTML(m.body || '')}</div>
+          ${fileHTML}
         `;
         root.appendChild(el);
       });
@@ -788,7 +796,6 @@
 
     function fillMessengerSelectors() {
       const depSelect = document.getElementById('messenger-department-select');
-      const taskSelect = document.getElementById('messenger-task-select');
       if (depSelect) {
         if (isSuper) {
           fillSelect(depSelect, departments, 'id', 'name', true);
@@ -798,9 +805,6 @@
           depSelect.value = String(session.department_id || '');
           depSelect.disabled = true;
         }
-      }
-      if (taskSelect) {
-        fillSelect(taskSelect, tasks, 'id', (t) => t.title, true);
       }
     }
 
@@ -817,17 +821,11 @@
       renderChatMessages('department-chat-log', data.items || []);
     }
 
-    async function loadTaskChat() {
-      const taskSelect = document.getElementById('messenger-task-select');
-      if (!taskSelect) return;
-      const taskID = Number(taskSelect.value || 0);
-      if (!taskID) {
-        renderChatMessages('task-chat-log', []);
-        return;
-      }
-      const data = await api(`/api/v1/messages/task?task_id=${taskID}`);
-      renderChatMessages('task-chat-log', data.items || []);
-    }
+    const taskChatState = {
+      taskID: 0,
+      taskTitle: '',
+      backView: 'tasks'
+    };
 
     async function sendDepartmentMessage() {
       const depSelect = document.getElementById('messenger-department-select');
@@ -843,18 +841,56 @@
       await loadDepartmentChat();
     }
 
-    async function sendTaskMessage() {
-      const taskSelect = document.getElementById('messenger-task-select');
-      const input = document.getElementById('task-chat-input');
-      const taskID = Number(taskSelect?.value || 0);
+    async function loadTaskChatByTaskID(taskID) {
+      const id = Number(taskID || taskChatState.taskID || 0);
+      if (!id) {
+        renderChatMessages('task-chat-full-log', []);
+        return;
+      }
+      const data = await api(`/api/v1/messages/task?task_id=${id}`);
+      renderChatMessages('task-chat-full-log', data.items || []);
+    }
+
+    async function openTaskChat(taskID, fromView) {
+      const id = Number(taskID || 0);
+      if (!id) return;
+      const task = tasks.find((t) => Number(t.id) === id);
+      taskChatState.taskID = id;
+      taskChatState.taskTitle = task?.title || `Задача #${id}`;
+      taskChatState.backView = fromView || 'tasks';
+
+      const title = document.getElementById('task-chat-title');
+      const subtitle = document.getElementById('task-chat-subtitle');
+      if (title) title.textContent = 'Чат задачи';
+      if (subtitle) subtitle.textContent = taskChatState.taskTitle;
+
+      setView('task-chat');
+      await loadTaskChatByTaskID(id);
+    }
+
+    async function sendTaskMessageFromTaskChat() {
+      const taskID = Number(taskChatState.taskID || 0);
+      const input = document.getElementById('task-chat-full-input');
+      const fileInput = document.getElementById('task-chat-full-file');
       const body = String(input?.value || '').trim();
-      if (!taskID || !body) return;
-      await api(`/api/v1/messages/task?task_id=${taskID}`, {
-        method: 'POST',
-        body: JSON.stringify({ task_id: taskID, body })
-      });
+      const file = fileInput?.files?.[0];
+      if (!taskID || (!body && !file)) return;
+
+      if (file) {
+        const form = new FormData();
+        form.append('task_id', String(taskID));
+        form.append('body', body);
+        form.append('file', file);
+        await apiMultipart('/api/v1/messages/task', form);
+      } else {
+        await api('/api/v1/messages/task', {
+          method: 'POST',
+          body: JSON.stringify({ task_id: taskID, body })
+        });
+      }
       if (input) input.value = '';
-      await loadTaskChat();
+      if (fileInput) fileInput.value = '';
+      await loadTaskChatByTaskID(taskID);
     }
 
     async function loadDepartments() {
@@ -957,6 +993,7 @@
           baseActions.push(`<button class="btn btn-sm btn-secondary edit-task-btn" data-id="${t.id}">Редактировать</button>`);
           baseActions.push(`<button class="btn btn-sm btn-secondary delete-task-btn" data-id="${t.id}">Удалить</button>`);
         }
+        baseActions.push(`<button class="btn btn-sm btn-secondary open-task-chat-btn" data-id="${t.id}">Чат</button>`);
         baseActions.push(`<button class="btn btn-sm btn-success close-task-btn" data-id="${t.id}">Закрыть</button>`);
         const normalizedStatus = String(t.status || '').toLowerCase();
         const statusCell = normalizedStatus.includes('done') || normalizedStatus.includes('заверш')
@@ -1356,7 +1393,11 @@
         if (targetView === 'messenger') {
           try {
             await loadDepartmentChat();
-            await loadTaskChat();
+          } catch (err) { alert(err.message); }
+        }
+        if (targetView === 'task-chat') {
+          try {
+            await loadTaskChatByTaskID(taskChatState.taskID);
           } catch (err) { alert(err.message); }
         }
         if (targetView === 'close-report') {
@@ -1379,6 +1420,11 @@
 
       const editTaskBtn = e.target.closest('.edit-task-btn');
       if (editTaskBtn) editTask(editTaskBtn.dataset.id);
+
+      const openTaskChatBtn = e.target.closest('.open-task-chat-btn');
+      if (openTaskChatBtn) {
+        try { await openTaskChat(openTaskChatBtn.dataset.id, 'tasks'); } catch (err) { alert(err.message); }
+      }
 
       const editUserBtn = e.target.closest('.edit-user-btn');
       if (editUserBtn) editUser(editUserBtn.dataset.id);
@@ -1474,20 +1520,22 @@
     document.getElementById('messenger-department-select')?.addEventListener('change', async () => {
       await loadDepartmentChat();
     });
-    document.getElementById('messenger-task-select')?.addEventListener('change', async () => {
-      await loadTaskChat();
-    });
     document.getElementById('messenger-refresh-department-btn')?.addEventListener('click', async () => {
       await loadDepartmentChat();
-    });
-    document.getElementById('messenger-refresh-task-btn')?.addEventListener('click', async () => {
-      await loadTaskChat();
     });
     document.getElementById('send-department-message-btn')?.addEventListener('click', async () => {
       await sendDepartmentMessage();
     });
-    document.getElementById('send-task-message-btn')?.addEventListener('click', async () => {
-      await sendTaskMessage();
+    document.getElementById('task-chat-refresh-btn')?.addEventListener('click', async () => {
+      await loadTaskChatByTaskID(taskChatState.taskID);
+    });
+    document.getElementById('task-chat-back-btn')?.addEventListener('click', async () => {
+      const back = taskChatState.backView || 'tasks';
+      setView(back);
+      if (back === 'tasks') await loadTasks();
+    });
+    document.getElementById('send-task-chat-full-btn')?.addEventListener('click', async () => {
+      await sendTaskMessageFromTaskChat();
     });
     document.getElementById('project-department')?.addEventListener('change', refreshStaffSelectors);
     document.getElementById('task-project')?.addEventListener('change', refreshStaffSelectors);

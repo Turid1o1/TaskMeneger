@@ -161,5 +161,7 @@ type ChatMessage struct {
 	AuthorID   int64  `json:"author_id"`
 	AuthorName string `json:"author_name"`
 	Body       string `json:"body"`
+	FileName   string `json:"file_name,omitempty"`
+	FileURL    string `json:"file_url,omitempty"`
 	CreatedAt  string `json:"created_at"`
 }
