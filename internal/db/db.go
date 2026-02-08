@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS reports (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   target_type TEXT NOT NULL,
   target_id INTEGER NOT NULL,
+  result_status TEXT NOT NULL DEFAULT 'Завершено',
   author_user_id INTEGER NOT NULL,
   title TEXT NOT NULL,
   resolution TEXT NOT NULL,
@@ -135,6 +136,9 @@ CREATE TABLE IF NOT EXISTS reports (
 	}
 	if err := addColumnIfMissing(db, "projects", "department_id", "INTEGER"); err != nil {
 		return fmt.Errorf("add projects.department_id: %w", err)
+	}
+	if err := addColumnIfMissing(db, "reports", "result_status", "TEXT NOT NULL DEFAULT 'Завершено'"); err != nil {
+		return fmt.Errorf("add reports.result_status: %w", err)
 	}
 	if _, err := db.Exec(`UPDATE projects SET status = 'Активен' WHERE status IS NULL OR status = ''`); err != nil {
 		return fmt.Errorf("normalize projects.status: %w", err)

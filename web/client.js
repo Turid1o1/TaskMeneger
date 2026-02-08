@@ -251,6 +251,16 @@
       mode: 'month',
       cursor: new Date()
     };
+    const pagination = {
+      projects: { page: 1, perPage: 8 },
+      tasks: { page: 1, perPage: 8 },
+      reports: { page: 1, perPage: 8 }
+    };
+    const closeReportDraft = {
+      targetType: 'task',
+      targetID: 0,
+      backView: 'tasks'
+    };
     const settings = loadSettings();
 
     function bindMultiLimit(elementID, limit) {
@@ -321,6 +331,32 @@
       document.getElementById('user-department').value = '1';
       document.getElementById('user-role').value = 'Member';
       document.getElementById('user-editor-message').textContent = '';
+    }
+
+    function clampPage(name, total) {
+      const pager = pagination[name];
+      const pages = Math.max(1, Math.ceil(total / pager.perPage));
+      if (pager.page > pages) pager.page = pages;
+      if (pager.page < 1) pager.page = 1;
+      return pages;
+    }
+
+    function pagedItems(name, items) {
+      const pager = pagination[name];
+      const pages = clampPage(name, items.length);
+      const start = (pager.page - 1) * pager.perPage;
+      return { pages, items: items.slice(start, start + pager.perPage) };
+    }
+
+    function renderPager(name, total) {
+      const pages = clampPage(name, total);
+      const pager = pagination[name];
+      const prev = document.getElementById(`${name}-prev-btn`);
+      const next = document.getElementById(`${name}-next-btn`);
+      const label = document.getElementById(`${name}-page-label`);
+      if (prev) prev.disabled = pager.page <= 1;
+      if (next) next.disabled = pager.page >= pages;
+      if (label) label.textContent = `Страница ${pager.page} из ${pages}`;
     }
 
     function hydrateSettingsForms() {
@@ -416,6 +452,7 @@
 
     function renderCalendar() {
       const root = document.getElementById('calendar-grid');
+      const periodLabel = document.getElementById('calendar-period-label');
       if (!root) return;
       root.innerHTML = '';
       const tasksWithDate = tasks.filter(t => t.due_date);
@@ -423,6 +460,7 @@
 
       if (mode === 'day') {
         const dayCursor = startOfDay(calendarFilter.cursor);
+        if (periodLabel) periodLabel.textContent = dayCursor.toLocaleDateString('ru-RU');
         const iso = dayCursor.toISOString().slice(0, 10);
         const cell = document.createElement('div');
         cell.className = 'day';
@@ -440,6 +478,8 @@
 
       if (mode === 'week') {
         const start = startOfWeek(calendarFilter.cursor);
+        const end = addDays(start, 6);
+        if (periodLabel) periodLabel.textContent = `${start.toLocaleDateString('ru-RU')} - ${end.toLocaleDateString('ru-RU')}`;
         for (let i = 0; i < 7; i++) {
           const date = addDays(start, i);
           const iso = date.toISOString().slice(0, 10);
@@ -461,6 +501,7 @@
       const monthBase = startOfDay(calendarFilter.cursor);
       const year = monthBase.getFullYear();
       const month = monthBase.getMonth();
+      if (periodLabel) periodLabel.textContent = monthBase.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       for (let day = 1; day <= daysInMonth; day++) {
         const d = new Date(year, month, day);
@@ -527,18 +568,19 @@
       if (!tbody) return;
       tbody.innerHTML = '';
 
-      projects.forEach(p => {
+      const pageData = pagedItems('projects', projects);
+      pageData.items.forEach(p => {
         const tr = document.createElement('tr');
         const baseActions = [];
         if (canManage) {
           baseActions.push(`<button class="btn edit-project-btn" data-id="${p.id}">Редактировать</button>`);
           baseActions.push(`<button class="btn delete-project-btn" data-id="${p.id}">Удалить</button>`);
         }
-        baseActions.push(`<button class="btn close-project-btn" data-id="${p.id}">Закрыть проект</button>`);
+        baseActions.push(`<button class="btn success close-project-btn" data-id="${p.id}">Закрыть</button>`);
         tr.innerHTML = `<td>${p.id}</td><td>${p.name}</td><td>${p.department_name || '—'}</td><td>${p.status || 'Активен'}</td><td>${p.curator_names || usersText(p.curators)}</td><td>${p.assignee_names || usersText(p.assignees)}</td><td>${baseActions.join(' ')}</td>`;
         tbody.appendChild(tr);
       });
-      refreshReportTargetSelect();
+      renderPager('projects', projects.length);
     }
 
     async function loadTasks() {
@@ -550,7 +592,8 @@
       if (!tbody) return;
       tbody.innerHTML = '';
 
-      tasks.forEach(t => {
+      const pageData = pagedItems('tasks', tasks);
+      pageData.items.forEach(t => {
         const meta = priorityMeta(t.priority);
         const tr = document.createElement('tr');
         const baseActions = [];
@@ -558,14 +601,18 @@
           baseActions.push(`<button class="btn edit-task-btn" data-id="${t.id}">Редактировать</button>`);
           baseActions.push(`<button class="btn delete-task-btn" data-id="${t.id}">Удалить</button>`);
         }
-        baseActions.push(`<button class="btn close-task-btn" data-id="${t.id}">Закрыть задачу</button>`);
-        tr.innerHTML = `<td>${t.id}</td><td>${t.title}</td><td>${t.department_name || '—'}</td><td>${typeLabel(t.type)}</td><td>${statusLabel(t.status)}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_name || '—'}</td><td>${baseActions.join(' ')}</td>`;
+        baseActions.push(`<button class="btn success close-task-btn" data-id="${t.id}">Закрыть</button>`);
+        const normalizedStatus = String(t.status || '').toLowerCase();
+        const statusCell = normalizedStatus.includes('done') || normalizedStatus.includes('заверш')
+          ? `<span class="status-badge status-done">Выполнено</span>`
+          : statusLabel(t.status);
+        tr.innerHTML = `<td>${t.id}</td><td>${t.title}</td><td>${t.department_name || '—'}</td><td>${typeLabel(t.type)}</td><td>${statusCell}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_name || '—'}</td><td>${baseActions.join(' ')}</td>`;
         tbody.appendChild(tr);
       });
 
+      renderPager('tasks', tasks.length);
       renderDashboard();
       renderCalendar();
-      refreshReportTargetSelect();
     }
 
     async function loadReports() {
@@ -574,19 +621,21 @@
       const tbody = document.querySelector('#reports-table tbody');
       if (!tbody) return;
       tbody.innerHTML = '';
-      reports.forEach(r => {
+      const pageData = pagedItems('reports', reports);
+      pageData.items.forEach(r => {
         const tr = document.createElement('tr');
         const fileCell = r.file_name ? `<a href="/api/v1/reports/${r.id}/file" target="_blank">${r.file_name}</a>` : '—';
         const kind = String(r.target_type).toLowerCase() === 'project' ? 'Проект' : 'Задача';
-        tr.innerHTML = `<td>${r.id}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.author_name)}</td><td>${escapeHTML(r.title)}</td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td><td><button class="btn toggle-report-btn" data-id="${r.id}">Подробнее</button></td>`;
+        tr.innerHTML = `<td>${r.id}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.result_status || 'Завершено')}</td><td>${escapeHTML(r.author_name)}</td><td>${escapeHTML(r.title)}</td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td><td><button class="btn toggle-report-btn" data-id="${r.id}">Подробнее</button></td>`;
         tbody.appendChild(tr);
 
         const detailsTr = document.createElement('tr');
         detailsTr.className = 'report-details-row hidden';
         detailsTr.dataset.reportId = String(r.id);
-        detailsTr.innerHTML = `<td colspan="8">
+        detailsTr.innerHTML = `<td colspan="9">
           <div class="report-details">
             <div><strong>Объект:</strong> ${escapeHTML(r.target_label)}</div>
+            <div><strong>Результат:</strong> ${escapeHTML(r.result_status || 'Завершено')}</div>
             <div><strong>Автор:</strong> ${escapeHTML(r.author_name)}</div>
             <div><strong>Дата:</strong> ${escapeHTML(r.created_at)}</div>
             <div><strong>Решение:</strong></div>
@@ -595,22 +644,13 @@
         </td>`;
         tbody.appendChild(detailsTr);
       });
-    }
-
-    function refreshReportTargetSelect() {
-      const typeEl = document.getElementById('report-target-type');
-      const targetEl = document.getElementById('report-target-id');
-      if (!typeEl || !targetEl) return;
-      const type = typeEl.value;
-      if (type === 'project') {
-        fillSelect(targetEl, projects, 'id', (p) => p.name, false);
-      } else {
-        fillSelect(targetEl, tasks, 'id', (t) => t.title, false);
-      }
+      renderPager('reports', reports.length);
     }
 
     async function applyDepartmentFilter(departmentID, targetView) {
       selectedDepartmentID = departmentID ? Number(departmentID) : null;
+      pagination.projects.page = 1;
+      pagination.tasks.page = 1;
       await loadProjects();
       await loadTasks();
       renderDashboard();
@@ -785,15 +825,48 @@
       }
     }
 
-    async function saveReport() {
-      const fileInput = document.getElementById('report-file');
+    function refreshCloseTargetSelect() {
+      const typeEl = document.getElementById('close-target-type');
+      const targetEl = document.getElementById('close-target-id');
+      if (!typeEl || !targetEl) return;
+      const type = typeEl.value;
+      if (type === 'project') {
+        fillSelect(targetEl, projects, 'id', (p) => p.name, false);
+      } else {
+        fillSelect(targetEl, tasks, 'id', (t) => t.title, false);
+      }
+      if (closeReportDraft.targetType === type && closeReportDraft.targetID > 0) {
+        targetEl.value = String(closeReportDraft.targetID);
+      }
+    }
+
+    function openCloseReport(targetType, targetID) {
+      closeReportDraft.targetType = targetType;
+      closeReportDraft.targetID = Number(targetID);
+      closeReportDraft.backView = targetType === 'project' ? 'projects' : 'tasks';
+      const typeEl = document.getElementById('close-target-type');
+      if (typeEl) typeEl.value = targetType;
+      refreshCloseTargetSelect();
+      const targetEl = document.getElementById('close-target-id');
+      if (targetEl && closeReportDraft.targetID > 0) targetEl.value = String(closeReportDraft.targetID);
+      document.getElementById('close-result').value = 'Завершено';
+      document.getElementById('close-title').value = '';
+      document.getElementById('close-resolution').value = '';
+      document.getElementById('close-file').value = '';
+      document.getElementById('close-report-message').textContent = '';
+      setView('close-report');
+    }
+
+    async function saveCloseReport() {
+      const fileInput = document.getElementById('close-file');
       const file = fileInput?.files?.[0];
-      const targetType = document.getElementById('report-target-type').value;
-      const targetID = Number(document.getElementById('report-target-id').value);
-      const title = document.getElementById('report-title').value.trim();
-      const resolution = document.getElementById('report-resolution').value.trim();
-      const closeItem = document.getElementById('report-close-item').value;
-      const msg = document.getElementById('report-message');
+      const targetType = document.getElementById('close-target-type').value;
+      const targetID = Number(document.getElementById('close-target-id').value);
+      const result = document.getElementById('close-result').value;
+      const title = document.getElementById('close-title').value.trim();
+      const resolution = document.getElementById('close-resolution').value.trim();
+      const closeItem = result === 'Завершено' ? 'true' : 'false';
+      const msg = document.getElementById('close-report-message');
 
       try {
         if (!targetID || !title || !resolution) throw new Error('Заполните обязательные поля отчета');
@@ -801,19 +874,21 @@
         const formData = new FormData();
         formData.set('target_type', targetType);
         formData.set('target_id', String(targetID));
-        formData.set('title', title);
-        formData.set('resolution', resolution);
+        formData.set('result_status', result);
+        formData.set('title', `[${result}] ${title}`);
+        formData.set('resolution', `Результат: ${result}\n\n${resolution}`);
         formData.set('close_item', closeItem);
         if (file) formData.set('file', file);
 
         await apiMultipart('/api/v1/reports', formData);
         msg.textContent = 'Отчет отправлен';
-        document.getElementById('report-title').value = '';
-        document.getElementById('report-resolution').value = '';
+        document.getElementById('close-title').value = '';
+        document.getElementById('close-resolution').value = '';
         if (fileInput) fileInput.value = '';
         await loadProjects();
         await loadTasks();
         await loadReports();
+        setView('reports');
       } catch (e) {
         msg.textContent = e.message;
       }
@@ -831,18 +906,6 @@
       if (!canManage) return;
       if (!confirm('Удалить задачу?')) return;
       await api(`/api/v1/tasks/${id}`, { method: 'DELETE' });
-      await loadTasks();
-    }
-
-    async function closeTask(id) {
-      await api(`/api/v1/tasks/${id}/close`, { method: 'PATCH', body: JSON.stringify({}) });
-      await loadTasks();
-      await loadProjects();
-    }
-
-    async function closeProject(id) {
-      await api(`/api/v1/projects/${id}/close`, { method: 'PATCH', body: JSON.stringify({}) });
-      await loadProjects();
       await loadTasks();
     }
 
@@ -868,11 +931,23 @@
           refreshStaffSelectors();
         }
         setView(viewBtn.dataset.view);
-        if (viewBtn.dataset.view === 'reports') {
-          refreshReportTargetSelect();
+        if (viewBtn.dataset.view === 'projects') {
+          pagination.projects.page = 1;
+          try { await loadProjects(); } catch (err) { alert(err.message); }
+        }
+        if (viewBtn.dataset.view === 'tasks') {
+          pagination.tasks.page = 1;
+          try { await loadTasks(); } catch (err) { alert(err.message); }
         }
         if (viewBtn.dataset.view === 'profile') {
           try { await loadProfile(); } catch (err) { alert(err.message); }
+        }
+        if (viewBtn.dataset.view === 'reports') {
+          pagination.reports.page = 1;
+          try { await loadReports(); } catch (err) { alert(err.message); }
+        }
+        if (viewBtn.dataset.view === 'close-report') {
+          refreshCloseTargetSelect();
         }
       }
 
@@ -907,12 +982,12 @@
 
       const closeTaskBtn = e.target.closest('.close-task-btn');
       if (closeTaskBtn) {
-        try { await closeTask(closeTaskBtn.dataset.id); } catch (err) { alert(err.message); }
+        openCloseReport('task', closeTaskBtn.dataset.id);
       }
 
       const closeProjectBtn = e.target.closest('.close-project-btn');
       if (closeProjectBtn) {
-        try { await closeProject(closeProjectBtn.dataset.id); } catch (err) { alert(err.message); }
+        openCloseReport('project', closeProjectBtn.dataset.id);
       }
 
       const deleteUserBtn = e.target.closest('.delete-user-btn');
@@ -940,8 +1015,11 @@
     document.getElementById('save-settings-general-btn')?.addEventListener('click', saveGeneralSettings);
     document.getElementById('save-settings-security-btn')?.addEventListener('click', saveSecuritySettings);
     document.getElementById('save-settings-notify-btn')?.addEventListener('click', saveNotifySettings);
-    document.getElementById('report-target-type')?.addEventListener('change', refreshReportTargetSelect);
-    document.getElementById('save-report-btn')?.addEventListener('click', saveReport);
+    document.getElementById('close-target-type')?.addEventListener('change', refreshCloseTargetSelect);
+    document.getElementById('save-close-report-btn')?.addEventListener('click', saveCloseReport);
+    document.getElementById('close-report-back-btn')?.addEventListener('click', () => {
+      setView(closeReportDraft.backView || 'tasks');
+    });
     document.getElementById('save-profile-btn')?.addEventListener('click', saveProfile);
     document.getElementById('calendar-mode')?.addEventListener('change', () => {
       calendarFilter.mode = document.getElementById('calendar-mode').value || 'month';
@@ -964,6 +1042,30 @@
     });
     document.getElementById('project-department')?.addEventListener('change', refreshStaffSelectors);
     document.getElementById('task-project')?.addEventListener('change', refreshStaffSelectors);
+    document.getElementById('projects-prev-btn')?.addEventListener('click', async () => {
+      pagination.projects.page -= 1;
+      await loadProjects();
+    });
+    document.getElementById('projects-next-btn')?.addEventListener('click', async () => {
+      pagination.projects.page += 1;
+      await loadProjects();
+    });
+    document.getElementById('tasks-prev-btn')?.addEventListener('click', async () => {
+      pagination.tasks.page -= 1;
+      await loadTasks();
+    });
+    document.getElementById('tasks-next-btn')?.addEventListener('click', async () => {
+      pagination.tasks.page += 1;
+      await loadTasks();
+    });
+    document.getElementById('reports-prev-btn')?.addEventListener('click', async () => {
+      pagination.reports.page -= 1;
+      await loadReports();
+    });
+    document.getElementById('reports-next-btn')?.addEventListener('click', async () => {
+      pagination.reports.page += 1;
+      await loadReports();
+    });
     bindMultiLimit('project-curators', 5);
     bindMultiLimit('project-assignees', 5);
     bindMultiLimit('task-curators', 5);
@@ -975,6 +1077,7 @@
       await loadProjects();
       await loadTasks();
       await loadReports();
+      refreshCloseTargetSelect();
       resetProjectEditor();
       resetTaskEditor();
       resetUserEditor();

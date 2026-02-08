@@ -12,7 +12,13 @@
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
-body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: var(--bg); color: var(--ink); overflow: hidden; }
+body {
+  margin: 0;
+  font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+}
 
 /* login/register */
 .login-page { min-height: 100vh; display: grid; place-items: center; padding: 18px; background: #dbe0e8; overflow: hidden; }
@@ -132,6 +138,11 @@ h1 { margin: 0; font-size: 28px; letter-spacing: 0.2px; }
 }
 .btn.primary { background: var(--blue); color: #fff; }
 .btn.primary:hover { background: #2554c4; }
+.btn.success {
+  background: linear-gradient(180deg, #dcfce7, #c9f5d6);
+  color: #166534;
+  border: 1px solid #8ad7a9;
+}
 
 .card-col, .editor-box, .info-box {
   background: var(--soft);
@@ -215,6 +226,19 @@ textarea { min-height: 90px; }
 .table a { color: #1d4ed8; text-decoration: none; }
 .table a:hover { text-decoration: underline; }
 .hidden { display: none; }
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.status-done {
+  background: linear-gradient(180deg, #dcfce7, #c9f5d6);
+  color: #166534;
+  border: 1px solid #8ad7a9;
+}
 .report-details-row td { background: #f7f9fd; }
 .report-details {
   display: grid;
@@ -233,6 +257,47 @@ textarea { min-height: 90px; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; }
 .day { min-height: 110px; background: var(--soft); border-radius: 10px; padding: 8px; font-size: 12px; border: 1px solid #e3e8f1; box-shadow: inset 0 1px 0 rgba(255,255,255,0.8); }
 .day .evt { display: block; margin-top: 5px; background: #dbeafe; color: #1d4ed8; padding: 4px 6px; border-radius: 8px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.calendar-nav-bottom,
+.table-pager {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+.icon-nav-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: 3px solid #111827;
+  background: #fff;
+  color: #111827;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.15s ease;
+}
+.icon-nav-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+}
+.icon-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+.calendar-period-label,
+.pager-label {
+  font-size: 14px;
+  color: #334155;
+  min-width: 180px;
+  text-align: center;
+}
 
 @media (max-width: 1200px) {
   .login-shell { grid-template-columns: 1fr; }

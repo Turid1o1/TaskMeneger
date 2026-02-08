@@ -104,20 +104,28 @@
               <option value="week">Неделя</option>
               <option value="month">Месяц</option>
             </select>
-            <button class="btn" id="calendar-prev-btn">Назад</button>
-            <button class="btn" id="calendar-next-btn">Вперед</button>
           </div>
         </div>
         <div class="calendar-grid" id="calendar-grid"></div>
+        <div class="calendar-nav-bottom">
+          <button class="icon-nav-btn" id="calendar-prev-btn" title="Назад" aria-label="Назад">&#8592;</button>
+          <div class="calendar-period-label" id="calendar-period-label">Период</div>
+          <button class="icon-nav-btn" id="calendar-next-btn" title="Вперед" aria-label="Вперед">&#8594;</button>
+        </div>
       </section>
 
       <section class="view" id="view-projects">
-        <div class="header-row"><div><h1>Проекты</h1></div><button class="btn primary" data-view="project-editor">+ Новый проект</button></div>
+        <div class="header-row"><div><h1>Проекты</h1></div><div class="toolbar"><button class="btn primary" data-view="project-editor">+ Новый проект</button><button class="btn" data-view="dashboard">Назад</button></div></div>
 
         <table class="table" id="projects-table">
           <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Статус</th><th>Кураторы</th><th>Исполнители</th><th>Действия</th></tr></thead>
           <tbody></tbody>
         </table>
+        <div class="table-pager">
+          <button class="icon-nav-btn" id="projects-prev-btn" title="Назад" aria-label="Назад">&#8592;</button>
+          <div class="pager-label" id="projects-page-label">Страница 1</div>
+          <button class="icon-nav-btn" id="projects-next-btn" title="Вперед" aria-label="Вперед">&#8594;</button>
+        </div>
       </section>
 
       <section class="view" id="view-project-editor">
@@ -144,11 +152,16 @@
       </section>
 
       <section class="view" id="view-tasks">
-        <div class="header-row"><div><h1>Задачи</h1></div><button class="btn primary" data-view="task-editor">+ Новая задача</button></div>
+        <div class="header-row"><div><h1>Задачи</h1></div><div class="toolbar"><button class="btn primary" data-view="task-editor">+ Новая задача</button><button class="btn" data-view="dashboard">Назад</button></div></div>
         <table class="table" id="tasks-table">
           <thead><tr><th>ID</th><th>Название</th><th>Отдел</th><th>Тип</th><th>Статус</th><th>Приоритет</th><th>Исполнители</th><th>Кураторы</th><th>Проект</th><th>Действия</th></tr></thead>
           <tbody></tbody>
         </table>
+        <div class="table-pager">
+          <button class="icon-nav-btn" id="tasks-prev-btn" title="Назад" aria-label="Назад">&#8592;</button>
+          <div class="pager-label" id="tasks-page-label">Страница 1</div>
+          <button class="icon-nav-btn" id="tasks-next-btn" title="Вперед" aria-label="Вперед">&#8594;</button>
+        </div>
       </section>
 
       <section class="view" id="view-task-editor">
@@ -175,52 +188,65 @@
       </section>
 
       <section class="view" id="view-reports">
-        <div class="header-row"><div><h1>Отчеты</h1></div></div>
+        <div class="header-row"><div><h1>Отчеты</h1></div><button class="btn" data-view="dashboard">Назад</button></div>
+
+        <table class="table" id="reports-table">
+          <thead><tr><th>ID</th><th>Тип</th><th>Объект</th><th>Результат</th><th>Автор</th><th>Заголовок</th><th>Файл</th><th>Дата</th><th>Детали</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="table-pager">
+          <button class="icon-nav-btn" id="reports-prev-btn" title="Назад" aria-label="Назад">&#8592;</button>
+          <div class="pager-label" id="reports-page-label">Страница 1</div>
+          <button class="icon-nav-btn" id="reports-next-btn" title="Вперед" aria-label="Вперед">&#8594;</button>
+        </div>
+      </section>
+
+      <section class="view" id="view-close-report">
+        <div class="header-row">
+          <div><h1>Закрытие с отчетом</h1></div>
+          <button class="btn" id="close-report-back-btn">Назад</button>
+        </div>
         <div class="editor-box">
           <div class="grid-3">
             <div>
               <label>Тип</label>
-              <select id="report-target-type">
+              <select id="close-target-type">
                 <option value="task">Задача</option>
                 <option value="project">Проект</option>
               </select>
             </div>
             <div>
               <label>Объект</label>
-              <select id="report-target-id"></select>
+              <select id="close-target-id"></select>
             </div>
             <div>
+              <label>Результат</label>
+              <select id="close-result">
+                <option value="Завершено">Завершено</option>
+                <option value="Завершено не полностью">Завершено не полностью</option>
+                <option value="Не завершено">Не завершено</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid-3">
+            <div>
               <label>Заголовок</label>
-              <input id="report-title" placeholder="Кратко о выполненной работе">
+              <input id="close-title" placeholder="Кратко о выполненной работе">
+            </div>
+            <div>
+              <label>Файл (до 50 МБ)</label>
+              <input id="close-file" type="file">
             </div>
           </div>
           <div>
             <label>Отчет о решении</label>
-            <textarea id="report-resolution" placeholder="Опишите, как был решен вопрос"></textarea>
-          </div>
-          <div class="grid-3">
-            <div>
-              <label>Файл (до 50 МБ)</label>
-              <input id="report-file" type="file">
-            </div>
-            <div>
-              <label>Закрыть после отчета</label>
-              <select id="report-close-item">
-                <option value="true">Да</option>
-                <option value="false">Нет</option>
-              </select>
-            </div>
+            <textarea id="close-resolution" placeholder="Опишите, как был решен вопрос"></textarea>
           </div>
           <div class="row-actions">
-            <button class="btn primary" id="save-report-btn">Отправить отчет</button>
-            <span class="sub" id="report-message"></span>
+            <button class="btn primary" id="save-close-report-btn">Сохранить отчет</button>
+            <span class="sub" id="close-report-message"></span>
           </div>
         </div>
-
-        <table class="table" id="reports-table">
-          <thead><tr><th>ID</th><th>Тип</th><th>Объект</th><th>Автор</th><th>Заголовок</th><th>Файл</th><th>Дата</th><th>Детали</th></tr></thead>
-          <tbody></tbody>
-        </table>
       </section>
 
       <section class="view" id="view-users">

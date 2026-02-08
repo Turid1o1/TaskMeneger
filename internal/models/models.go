@@ -123,6 +123,7 @@ type Report struct {
 	TargetType  string `json:"target_type"`
 	TargetID    int64  `json:"target_id"`
 	TargetLabel string `json:"target_label"`
+	ResultStatus string `json:"result_status"`
 	AuthorID    int64  `json:"author_id"`
 	AuthorName  string `json:"author_name"`
 	Title       string `json:"title"`
@@ -135,6 +136,7 @@ type Report struct {
 type CreateReportInput struct {
 	TargetType string
 	TargetID   int64
+	ResultStatus string
 	AuthorID   int64
 	Title      string
 	Resolution string

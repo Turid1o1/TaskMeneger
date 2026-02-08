@@ -725,10 +725,15 @@ func (r *Repository) CreateReport(ctx context.Context, in models.CreateReportInp
 	}
 	defer tx.Rollback()
 
+	reportID, err := nextFreeReportID(ctx, tx)
+	if err != nil {
+		return err
+	}
+
 	if _, err := tx.ExecContext(ctx, `
-INSERT INTO reports (target_type, target_id, author_user_id, title, resolution, file_name, file_path, file_size)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`, strings.TrimSpace(in.TargetType), in.TargetID, in.AuthorID, strings.TrimSpace(in.Title), strings.TrimSpace(in.Resolution), strings.TrimSpace(in.FileName), strings.TrimSpace(in.FilePath), in.FileSize); err != nil {
+INSERT INTO reports (id, target_type, target_id, result_status, author_user_id, title, resolution, file_name, file_path, file_size)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, reportID, strings.TrimSpace(in.TargetType), in.TargetID, strings.TrimSpace(in.ResultStatus), in.AuthorID, strings.TrimSpace(in.Title), strings.TrimSpace(in.Resolution), strings.TrimSpace(in.FileName), strings.TrimSpace(in.FilePath), in.FileSize); err != nil {
 		return fmt.Errorf("insert report: %w", err)
 	}
 
@@ -766,6 +771,7 @@ SELECT r.id,
          WHEN lower(r.target_type) = 'project' THEN COALESCE((SELECT p.name FROM projects p WHERE p.id = r.target_id), 'Проект #' || r.target_id)
          ELSE r.target_type || ' #' || r.target_id
        END,
+       r.result_status,
        r.author_user_id,
        u.full_name,
        r.title,
@@ -785,7 +791,7 @@ ORDER BY r.id DESC
 	result := make([]models.Report, 0)
 	for rows.Next() {
 		var item models.Report
-		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.TargetLabel, &item.AuthorID, &item.AuthorName, &item.Title, &item.Resolution, &item.FileName, &item.FileSize, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.TargetLabel, &item.ResultStatus, &item.AuthorID, &item.AuthorName, &item.Title, &item.Resolution, &item.FileName, &item.FileSize, &item.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan report: %w", err)
 		}
 		result = append(result, item)
@@ -1004,6 +1010,32 @@ func nextFreeProjectID(ctx context.Context, tx *sql.Tx) (int64, error) {
 	}
 	if err := rows.Err(); err != nil {
 		return 0, fmt.Errorf("iterate project ids: %w", err)
+	}
+	return expected, nil
+}
+
+func nextFreeReportID(ctx context.Context, tx *sql.Tx) (int64, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT id FROM reports ORDER BY id`)
+	if err != nil {
+		return 0, fmt.Errorf("query report ids: %w", err)
+	}
+	defer rows.Close()
+
+	var expected int64 = 1
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return 0, fmt.Errorf("scan report id: %w", err)
+		}
+		if id > expected {
+			break
+		}
+		if id == expected {
+			expected++
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("iterate report ids: %w", err)
 	}
 	return expected, nil
 }

@@ -547,9 +547,19 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request) {
 
 		targetType := strings.ToLower(strings.TrimSpace(r.FormValue("target_type")))
 		targetID, _ := strconv.ParseInt(strings.TrimSpace(r.FormValue("target_id")), 10, 64)
+		resultStatus := strings.TrimSpace(r.FormValue("result_status"))
 		title := strings.TrimSpace(r.FormValue("title"))
 		resolution := strings.TrimSpace(r.FormValue("resolution"))
 		closeItem := strings.EqualFold(strings.TrimSpace(r.FormValue("close_item")), "true")
+		if resultStatus == "" {
+			resultStatus = "Завершено"
+		}
+		switch resultStatus {
+		case "Завершено", "Завершено не полностью", "Не завершено":
+		default:
+			writeError(w, http.StatusBadRequest, "некорректный результат закрытия")
+			return
+		}
 
 		if (targetType != "task" && targetType != "project") || targetID <= 0 || title == "" || resolution == "" {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля отчета")
@@ -609,6 +619,7 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request) {
 		in := models.CreateReportInput{
 			TargetType: targetType,
 			TargetID:   targetID,
+			ResultStatus: resultStatus,
 			AuthorID:   actor.ID,
 			Title:      title,
 			Resolution: resolution,
