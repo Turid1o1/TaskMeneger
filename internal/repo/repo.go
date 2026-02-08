@@ -799,6 +799,52 @@ ORDER BY r.id DESC
 	return result, rows.Err()
 }
 
+func (r *Repository) ReportsByDepartment(ctx context.Context, departmentID int64) ([]models.Report, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT r.id,
+       r.target_type,
+       r.target_id,
+       CASE
+         WHEN lower(r.target_type) = 'task' THEN COALESCE(t.title, 'Задача #' || r.target_id)
+         WHEN lower(r.target_type) = 'project' THEN COALESCE(pp.name, 'Проект #' || r.target_id)
+         ELSE r.target_type || ' #' || r.target_id
+       END,
+       r.result_status,
+       r.author_user_id,
+       u.full_name,
+       r.title,
+       r.resolution,
+       r.file_name,
+       r.file_size,
+       r.created_at
+FROM reports r
+JOIN users u ON u.id = r.author_user_id
+LEFT JOIN tasks t ON lower(r.target_type) = 'task' AND t.id = r.target_id
+LEFT JOIN projects pt ON pt.id = t.project_id
+LEFT JOIN projects pp ON lower(r.target_type) = 'project' AND pp.id = r.target_id
+WHERE CASE
+  WHEN lower(r.target_type) = 'task' THEN COALESCE(pt.department_id, 0)
+  WHEN lower(r.target_type) = 'project' THEN COALESCE(pp.department_id, 0)
+  ELSE 0
+END = ?
+ORDER BY r.id DESC
+`, departmentID)
+	if err != nil {
+		return nil, fmt.Errorf("query reports by department: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]models.Report, 0)
+	for rows.Next() {
+		var item models.Report
+		if err := rows.Scan(&item.ID, &item.TargetType, &item.TargetID, &item.TargetLabel, &item.ResultStatus, &item.AuthorID, &item.AuthorName, &item.Title, &item.Resolution, &item.FileName, &item.FileSize, &item.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan report by department: %w", err)
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
 func (r *Repository) ReportFilePath(ctx context.Context, reportID int64) (string, string, error) {
 	var filePath, fileName string
 	err := r.db.QueryRowContext(ctx, `SELECT file_path, file_name FROM reports WHERE id = ?`, reportID).Scan(&filePath, &fileName)

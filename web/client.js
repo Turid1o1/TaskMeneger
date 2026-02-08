@@ -237,6 +237,8 @@
 
     document.getElementById('current-user').textContent = `${session.full_name}\n${session.position || ''}`;
     const canManage = ['Owner', 'Admin', 'Project Manager'].includes(session.role);
+    const isSuper = ['Owner', 'Admin'].includes(session.role);
+    const isScopedRole = ['Project Manager', 'Member', 'Guest'].includes(session.role);
 
     let users = [];
     let departments = [];
@@ -246,7 +248,7 @@
     let editingTaskID = null;
     let editingUserID = null;
     let reports = [];
-    let selectedDepartmentID = null;
+    let selectedDepartmentID = isScopedRole ? Number(session.department_id || 0) : null;
     const calendarFilter = {
       mode: 'month',
       cursor: new Date()
@@ -262,6 +264,17 @@
       backView: 'tasks'
     };
     const settings = loadSettings();
+
+    const navDashboard = document.getElementById('nav-dashboard');
+    const navProjects = document.getElementById('nav-projects');
+    const navTasks = document.getElementById('nav-tasks');
+    const navSettings = document.getElementById('nav-settings');
+    if (isScopedRole) {
+      if (navDashboard) navDashboard.style.display = 'none';
+      if (navSettings) navSettings.style.display = 'none';
+      if (navProjects) navProjects.textContent = 'Мои проекты';
+      if (navTasks) navTasks.textContent = 'Мои задачи';
+    }
 
     function bindMultiLimit(elementID, limit) {
       const el = document.getElementById(elementID);
@@ -521,6 +534,15 @@
     }
 
     async function loadDepartments() {
+      if (isScopedRole) {
+        departments = [{
+          id: Number(session.department_id || 1),
+          name: session.department_name || 'Мой отдел'
+        }];
+        fillSelect(document.getElementById('project-department'), departments, 'id', 'name', true);
+        fillSelect(document.getElementById('user-department'), departments, 'id', 'name', false);
+        return;
+      }
       const data = await api('/api/v1/departments');
       departments = data.items || [];
       fillSelect(document.getElementById('project-department'), departments, 'id', 'name', true);
@@ -922,31 +944,35 @@
       const viewBtn = e.target.closest('[data-view]');
       if (viewBtn) {
         e.preventDefault();
-        if (viewBtn.dataset.view === 'project-editor') {
+        const requestedView = viewBtn.dataset.view;
+        if (requestedView === 'project-editor') {
           resetProjectEditor();
           refreshStaffSelectors();
         }
-        if (viewBtn.dataset.view === 'task-editor') {
+        if (requestedView === 'task-editor') {
           resetTaskEditor();
           refreshStaffSelectors();
         }
-        setView(viewBtn.dataset.view);
-        if (viewBtn.dataset.view === 'projects') {
+        let targetView = requestedView;
+        if (isScopedRole && requestedView === 'dashboard') targetView = 'tasks';
+        if (isScopedRole && requestedView === 'settings') targetView = 'tasks';
+        setView(targetView);
+        if (targetView === 'projects') {
           pagination.projects.page = 1;
           try { await loadProjects(); } catch (err) { alert(err.message); }
         }
-        if (viewBtn.dataset.view === 'tasks') {
+        if (targetView === 'tasks') {
           pagination.tasks.page = 1;
           try { await loadTasks(); } catch (err) { alert(err.message); }
         }
-        if (viewBtn.dataset.view === 'profile') {
+        if (targetView === 'profile') {
           try { await loadProfile(); } catch (err) { alert(err.message); }
         }
-        if (viewBtn.dataset.view === 'reports') {
+        if (targetView === 'reports') {
           pagination.reports.page = 1;
           try { await loadReports(); } catch (err) { alert(err.message); }
         }
-        if (viewBtn.dataset.view === 'close-report') {
+        if (targetView === 'close-report') {
           refreshCloseTargetSelect();
         }
       }
@@ -1083,7 +1109,7 @@
       resetUserEditor();
       refreshStaffSelectors();
       hydrateSettingsForms();
-      setView('dashboard');
+      setView(isScopedRole ? 'tasks' : 'dashboard');
     } catch (e) {
       alert(`Ошибка загрузки: ${e.message}`);
     }

@@ -87,6 +87,14 @@ func (s *Server) departments(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+	actor, ok := s.actorFromRequest(w, r)
+	if !ok {
+		return
+	}
+	if !isSuperRole(actor.Role) {
+		writeError(w, http.StatusForbidden, "недостаточно прав")
+		return
+	}
 	items, err := s.repo.Departments(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -196,13 +204,19 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
 		departmentID, err := readOptionalInt64Query(r, "department_id")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		var projects []models.Project
-		if departmentID != nil {
+		if !isSuperRole(actor.Role) {
+			projects, err = s.repo.ProjectsByDepartment(r.Context(), actor.DepartmentID)
+		} else if departmentID != nil {
 			projects, err = s.repo.ProjectsByDepartment(r.Context(), *departmentID)
 		} else {
 			projects, err = s.repo.Projects(r.Context())
@@ -282,10 +296,23 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
 		}
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
 		tasks, err := s.repo.Tasks(r.Context(), &projectID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
+		}
+		if !isSuperRole(actor.Role) {
+			filtered := make([]models.Task, 0, len(tasks))
+			for _, t := range tasks {
+				if t.DepartmentID == actor.DepartmentID {
+					filtered = append(filtered, t)
+				}
+			}
+			tasks = filtered
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": tasks})
 		return
@@ -341,13 +368,19 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
 		departmentID, err := readOptionalInt64Query(r, "department_id")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		var tasks []models.Task
-		if departmentID != nil {
+		if !isSuperRole(actor.Role) {
+			tasks, err = s.repo.TasksByDepartment(r.Context(), actor.DepartmentID)
+		} else if departmentID != nil {
 			tasks, err = s.repo.TasksByDepartment(r.Context(), *departmentID)
 		} else {
 			tasks, err = s.repo.Tasks(r.Context(), nil)
@@ -519,10 +552,26 @@ func isAllowedRole(role string) bool {
 	}
 }
 
+func isSuperRole(role string) bool {
+	return strings.EqualFold(role, "Owner") || strings.EqualFold(role, "Admin")
+}
+
 func (s *Server) reports(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		items, err := s.repo.Reports(r.Context())
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
+		var (
+			items []models.Report
+			err   error
+		)
+		if isSuperRole(actor.Role) {
+			items, err = s.repo.Reports(r.Context())
+		} else {
+			items, err = s.repo.ReportsByDepartment(r.Context(), actor.DepartmentID)
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return

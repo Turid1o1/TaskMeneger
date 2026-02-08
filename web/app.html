@@ -10,12 +10,12 @@
   <div class="shell" id="app-root">
     <aside class="left-nav">
       <div class="brand">УЦС</div>
-      <a class="menu-link active" data-view="dashboard" href="#">Отделы</a>
-      <a class="menu-link" data-view="projects" href="#">Проекты</a>
-      <a class="menu-link" data-view="tasks" href="#">Задачи</a>
-      <a class="menu-link" data-view="reports" href="#">Отчеты</a>
-      <a class="menu-link" data-view="calendar" href="#">Календарь</a>
-      <a class="menu-link" data-view="settings" href="#">Настройки</a>
+      <a class="menu-link active" id="nav-dashboard" data-view="dashboard" href="#">Отделы</a>
+      <a class="menu-link" id="nav-projects" data-view="projects" href="#">Проекты</a>
+      <a class="menu-link" id="nav-tasks" data-view="tasks" href="#">Задачи</a>
+      <a class="menu-link" id="nav-reports" data-view="reports" href="#">Отчеты</a>
+      <a class="menu-link" id="nav-calendar" data-view="calendar" href="#">Календарь</a>
+      <a class="menu-link" id="nav-settings" data-view="settings" href="#">Настройки</a>
       <a class="menu-link" href="/login.html">Выход</a>
       <button class="nav-user" id="current-user" data-view="profile" type="button">—</button>
     </aside>
@@ -39,7 +39,7 @@
       </section>
 
       <section class="view" id="view-settings">
-        <div class="header-row"><div><h1>Настройки</h1><div class="sub">Настройки открываются отдельным экраном</div></div></div>
+        <div class="header-row"><div><h1>Настройки</h1></div></div>
         <div class="grid-2">
           <button class="info-box settings-link" data-view="settings-general"><h3>Общие</h3><p>Язык, часовой пояс, формат даты</p></button>
           <button class="info-box settings-link" data-view="settings-security"><h3>Безопасность</h3><p>2FA, политика пароля, лимит попыток, сессия</p></button>
