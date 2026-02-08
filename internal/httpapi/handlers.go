@@ -744,6 +744,9 @@ func (s *Server) requireActorRole(w http.ResponseWriter, r *http.Request, allowe
 	}
 
 	for _, role := range allowed {
+		if strings.EqualFold(actor.Role, "Deputy Admin") && strings.EqualFold(role, "Admin") {
+			return true
+		}
 		if strings.EqualFold(actor.Role, role) {
 			return true
 		}
@@ -770,7 +773,7 @@ func (s *Server) actorFromRequest(w http.ResponseWriter, r *http.Request) (model
 func isAllowedRole(role string) bool {
 	normalized := strings.TrimSpace(strings.ToLower(role))
 	switch normalized {
-	case "owner", "admin", "project manager", "member", "guest":
+	case "owner", "admin", "deputy admin", "project manager", "member", "guest":
 		return true
 	default:
 		return false
@@ -778,11 +781,11 @@ func isAllowedRole(role string) bool {
 }
 
 func canManageUsers(role string) bool {
-	return strings.EqualFold(role, "Owner") || strings.EqualFold(role, "Admin") || strings.EqualFold(role, "Project Manager")
+	return strings.EqualFold(role, "Owner") || strings.EqualFold(role, "Admin") || strings.EqualFold(role, "Deputy Admin") || strings.EqualFold(role, "Project Manager")
 }
 
 func isSuperRole(role string) bool {
-	return strings.EqualFold(role, "Owner") || strings.EqualFold(role, "Admin")
+	return strings.EqualFold(role, "Owner") || strings.EqualFold(role, "Admin") || strings.EqualFold(role, "Deputy Admin")
 }
 
 func (s *Server) decorateUserAvatar(user *models.User) {

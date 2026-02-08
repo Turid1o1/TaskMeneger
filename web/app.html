@@ -324,8 +324,8 @@
             <div><label>Логин</label><input id="user-login"></div>
             <div><label>ФИО</label><input id="user-fullname"></div>
             <div><label>Должность</label><select id="user-position"></select></div>
-            <div><label>Отдел</label><select id="user-department"></select></div>
-            <div><label>Роль</label><select id="user-role"><option value="Owner">Владелец</option><option value="Admin">Начальник УЦС</option><option value="Project Manager">Начальник отдела</option><option value="Member">Сотрудник отдела</option><option value="Guest">Гость</option></select></div>
+            <div><label>Отдел/Подразделение</label><select id="user-department"></select></div>
+            <div><label>Роль</label><select id="user-role"><option value="Owner">Владелец</option><option value="Admin">Начальник УЦС</option><option value="Deputy Admin">Заместитель начальника УЦС</option><option value="Project Manager">Начальник отдела</option><option value="Member">Сотрудник отдела</option><option value="Guest">Гость</option></select></div>
           </div>
           <div class="row-actions">
             <button class="btn btn-md btn-primary" id="save-user-btn">Сохранить</button>
@@ -336,7 +336,7 @@
         </div>
 
         <table class="table" id="users-table">
-          <thead><tr><th>ID</th><th>Логин</th><th>ФИО</th><th>Должность</th><th>Отдел</th><th>Роль</th><th>Статус</th><th>Действия</th></tr></thead>
+          <thead><tr><th>ID</th><th>Логин</th><th>ФИО</th><th>Должность</th><th>Отдел/Подразделение</th><th>Роль</th><th>Статус</th><th>Действия</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>

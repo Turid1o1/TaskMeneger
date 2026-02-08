@@ -1,34 +1,38 @@
 (function () {
   const SESSION_KEY = 'taskflow_session';
   const SETTINGS_KEY = 'taskflow_settings';
+  const UCS_TOP_POSITIONS = [
+    'Начальник УЦС',
+    'Заместитель начальника УЦС'
+  ];
   const POSITIONS_BY_DEPARTMENT = {
     1: [
-      'Начальник отдела сопровождения ИС',
-      'Ведущий инженер сопровождения ИС',
-      'Инженер сопровождения ИС',
-      'Системный аналитик сопровождения ИС',
-      'Специалист сопровождения ИС'
+      'Начальник Отдела Поддержки текущих сервисов',
+      'Ведущий системный аналитик отдела Поддержки текущих сервисов',
+      'Системный аналитик отдела Поддержки текущих сервисов',
+      'Ведущий разработчик отдела Поддержки текущих сервисов',
+      'Разработчик отдела Поддержки текущих сервисов',
+      'Тестировщик отдела Поддержки текущих сервисов'
     ],
     2: [
       'Начальник отдела поддержки и развития инфраструктуры',
-      'Ведущий системный инженер',
+      'Ведущий системный администратор',
       'Системный администратор',
-      'DevOps инженер',
-      'Инженер мониторинга'
+      'Ведущий сетевой инженер',
+      'Сетевой инженер',
+      'Главный специалист'
     ],
     3: [
       'Начальник отдела технической поддержки',
-      'Старший специалист технической поддержки',
-      'Специалист технической поддержки',
-      'Инженер сервис-деска',
-      'Оператор технической поддержки'
+      'Главный специалист технической поддержки',
+      'Специалист технической поддержки'
     ],
     4: [
-      'Начальник отдела информационной безопасности',
-      'Ведущий специалист ИБ',
-      'Специалист ИБ',
-      'Аналитик ИБ',
-      'Инженер ИБ'
+      'Начальник отдела ООИБ',
+      'Зам. нач. отдела ООИБ по бумагам',
+      'Зам. нач. отдела ООИБ по тех. части',
+      'Главный инспектор ООИБ',
+      'Инспектор ООИБ'
     ]
   };
 
@@ -231,6 +235,44 @@
     if (!select.value && options.length && !withEmpty) select.value = options[0];
   }
 
+  function allPositionOptions() {
+    const flat = [
+      ...UCS_TOP_POSITIONS,
+      ...Object.values(POSITIONS_BY_DEPARTMENT).flat()
+    ];
+    const seen = new Set();
+    const out = [];
+    flat.forEach((item) => {
+      const value = String(item || '').trim();
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      out.push(value);
+    });
+    return out;
+  }
+
+  function fillAllPositionSelect(select, selectedValue, withEmpty) {
+    if (!select) return;
+    const options = allPositionOptions();
+    const normalizedSelected = String(selectedValue || '').trim();
+    if (normalizedSelected && !options.includes(normalizedSelected)) options.push(normalizedSelected);
+    select.innerHTML = '';
+    if (withEmpty) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Выберите должность';
+      select.appendChild(option);
+    }
+    options.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item;
+      option.textContent = item;
+      select.appendChild(option);
+    });
+    if (normalizedSelected) select.value = normalizedSelected;
+    if (!select.value && options.length && !withEmpty) select.value = options[0];
+  }
+
   function assigneesText(task) {
     return (task.assignees || []).map(a => a.full_name).join(', ') || '—';
   }
@@ -292,6 +334,7 @@
     const v = String(value || '').toLowerCase();
     if (v === 'owner') return 'Владелец';
     if (v === 'admin') return 'Начальник УЦС';
+    if (v === 'deputy admin') return 'Заместитель начальника УЦС';
     if (v === 'project manager') return 'Начальник отдела';
     if (v === 'guest') return 'Гость';
     return 'Сотрудник отдела';
@@ -362,8 +405,8 @@
     }
 
     renderSessionUser(session);
-    const canManage = ['Owner', 'Admin', 'Project Manager'].includes(session.role);
-    const isSuper = ['Owner', 'Admin'].includes(session.role);
+    const canManage = ['Owner', 'Admin', 'Deputy Admin', 'Project Manager'].includes(session.role);
+    const isSuper = ['Owner', 'Admin', 'Deputy Admin'].includes(session.role);
     const isScopedRole = ['Member', 'Guest'].includes(session.role);
 
     let users = [];
@@ -515,8 +558,7 @@
     }
 
     function refreshUserPositionOptions(selectedValue) {
-      const depID = Number(document.getElementById('user-department')?.value || session.department_id || 1);
-      fillPositionSelect(document.getElementById('user-position'), depID, selectedValue || '', false);
+      fillAllPositionSelect(document.getElementById('user-position'), selectedValue || '', false);
     }
 
     function applyUserEditorPermissions() {
