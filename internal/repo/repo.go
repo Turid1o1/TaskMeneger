@@ -118,6 +118,46 @@ func (r *Repository) UpdateUserRole(ctx context.Context, userID int64, role stri
 	return nil
 }
 
+func (r *Repository) UpdateUser(ctx context.Context, userID int64, in models.UpdateUserInput) error {
+	res, err := r.db.ExecContext(ctx, `
+UPDATE users
+SET login = ?, full_name = ?, position = ?, role = ?
+WHERE id = ?
+`, strings.TrimSpace(in.Login), strings.TrimSpace(in.FullName), strings.TrimSpace(in.Position), strings.TrimSpace(in.Role), userID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return errors.New("логин уже существует")
+		}
+		return fmt.Errorf("update user: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("пользователь не найден")
+	}
+	return nil
+}
+
+func (r *Repository) DeleteUser(ctx context.Context, userID int64) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, userID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "foreign key") {
+			return errors.New("нельзя удалить пользователя: он привязан к проектам или задачам")
+		}
+		return fmt.Errorf("delete user: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("пользователь не найден")
+	}
+	return nil
+}
+
 func (r *Repository) Projects(ctx context.Context) ([]models.Project, error) {
 	rows, err := r.db.QueryContext(ctx, `
 SELECT p.id, p.key, p.name, p.curator_user_id, u.full_name
@@ -307,6 +347,77 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		if _, err := tx.ExecContext(ctx, `INSERT INTO task_assignees (task_id, user_id) VALUES (?, ?)`, taskID, uid); err != nil {
 			return fmt.Errorf("insert task assignee: %w", err)
 		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) UpdateTask(ctx context.Context, taskID int64, in models.UpdateTaskInput) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx, `
+UPDATE tasks
+SET key = ?, title = ?, description = ?, type = ?, status = ?, priority = ?, project_id = ?, curator_user_id = ?, due_date = ?
+WHERE id = ?
+`, strings.TrimSpace(in.Key), strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), strings.TrimSpace(in.Type), strings.TrimSpace(in.Status), strings.TrimSpace(in.Priority), in.ProjectID, in.CuratorID, in.DueDate, taskID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return errors.New("ключ задачи уже существует")
+		}
+		return fmt.Errorf("update task: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("задача не найдена")
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM task_assignees WHERE task_id = ?`, taskID); err != nil {
+		return fmt.Errorf("clear task assignees: %w", err)
+	}
+
+	for _, uid := range in.AssigneeIDs {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO task_assignees (task_id, user_id) VALUES (?, ?)`, taskID, uid); err != nil {
+			return fmt.Errorf("insert task assignee: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) DeleteTask(ctx context.Context, taskID int64) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM task_assignees WHERE task_id = ?`, taskID); err != nil {
+		return fmt.Errorf("delete task assignees: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM tasks WHERE id = ?`, taskID)
+	if err != nil {
+		return fmt.Errorf("delete task: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("задача не найдена")
 	}
 
 	if err := tx.Commit(); err != nil {

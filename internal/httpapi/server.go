@@ -40,6 +40,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/projects", s.projects)
 	s.mux.HandleFunc("/api/v1/projects/", s.projectTasks)
 	s.mux.HandleFunc("/api/v1/tasks", s.tasks)
+	s.mux.HandleFunc("/api/v1/tasks/", s.taskEntity)
 
 	fs := http.FileServer(http.Dir(s.staticPath))
 	s.mux.Handle("/", fs)
@@ -115,6 +116,38 @@ func parseUserRolePath(path string) (int64, bool) {
 		return 0, false
 	}
 	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "users" || parts[4] != "role" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
+func parseUserEntityPath(path string) (int64, bool) {
+	// /api/v1/users/{id}
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 4 {
+		return 0, false
+	}
+	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "users" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
+func parseTaskEntityPath(path string) (int64, bool) {
+	// /api/v1/tasks/{id}
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 4 {
+		return 0, false
+	}
+	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "tasks" {
 		return 0, false
 	}
 	id, err := strconv.ParseInt(parts[3], 10, 64)

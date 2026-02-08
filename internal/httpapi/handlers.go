@@ -78,8 +78,36 @@ func (s *Server) users(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	if userID, ok := parseUserRolePath(r.URL.Path); ok {
+		if r.Method != http.MethodPatch {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
+			return
+		}
+
+		var input models.UpdateUserRoleInput
+		if err := decodeJSON(r, &input); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if !isAllowedRole(input.Role) {
+			writeError(w, http.StatusBadRequest, "некорректная роль")
+			return
+		}
+
+		if err := s.repo.UpdateUserRole(r.Context(), userID, input.Role); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "роль обновлена"})
+		return
+	}
+
+	userID, ok := parseUserEntityPath(r.URL.Path)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
 
@@ -87,28 +115,31 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := parseUserRolePath(r.URL.Path)
-	if !ok {
-		writeError(w, http.StatusNotFound, "not found")
-		return
+	switch r.Method {
+	case http.MethodPut:
+		var input models.UpdateUserInput
+		if err := decodeJSON(r, &input); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if input.Login == "" || input.FullName == "" || input.Position == "" || !isAllowedRole(input.Role) {
+			writeError(w, http.StatusBadRequest, "заполните корректные поля")
+			return
+		}
+		if err := s.repo.UpdateUser(r.Context(), userID, input); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "пользователь обновлен"})
+	case http.MethodDelete:
+		if err := s.repo.DeleteUser(r.Context(), userID); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "пользователь удален"})
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
-
-	var input models.UpdateUserRoleInput
-	if err := decodeJSON(r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if !isAllowedRole(input.Role) {
-		writeError(w, http.StatusBadRequest, "некорректная роль")
-		return
-	}
-
-	if err := s.repo.UpdateUserRole(r.Context(), userID, input.Role); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]string{"message": "роль обновлена"})
 }
 
 func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
@@ -219,6 +250,44 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]string{"message": "задача создана"})
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
+	taskID, ok := parseTaskEntityPath(r.URL.Path)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+
+	if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
+		return
+	}
+
+	switch r.Method {
+	case http.MethodPut:
+		var input models.UpdateTaskInput
+		if err := decodeJSON(r, &input); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if input.Key == "" || input.Title == "" || input.Type == "" || input.Status == "" || input.Priority == "" || input.ProjectID == 0 || input.CuratorID == 0 {
+			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
+			return
+		}
+		if err := s.repo.UpdateTask(r.Context(), taskID, input); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "задача обновлена"})
+	case http.MethodDelete:
+		if err := s.repo.DeleteTask(r.Context(), taskID); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "задача удалена"})
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>TaskFlow - Вход</title>
+  <title>Страница входа</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="login-page">
@@ -15,24 +15,24 @@
     <div class="login-panel">
       <div class="auth-card">
         <h1>ОТДЕЛ ПОДДЕРЖКИ<br>И РАЗВИТИЯ ИНФРАСТРУКТУРЫ</h1>
-        <div class="auth-sub">Внутренняя информационная система TaskFlow</div>
+        <div class="auth-sub">Войдите для доступа к проектам и задачам</div>
 
-        <input class="auth-input" id="login-input" type="text" placeholder="Логин">
-        <input class="auth-input" id="password-input" type="password" placeholder="Пароль">
+        <label>Логин</label>
+        <input class="auth-input" id="login-input" type="text" placeholder="you@company.com">
+        <label>Пароль</label>
+        <input class="auth-input" id="password-input" type="password" placeholder="••••••••••••">
 
-        <div class="auth-actions">
-          <button class="auth-btn" id="login-btn" type="button">Вход</button>
+        <div class="row-actions">
+          <button class="auth-btn" id="login-btn" type="button">Войти</button>
           <a class="auth-btn secondary" href="/register.html">Регистрация</a>
         </div>
 
-        <div class="auth-footer" id="login-message">Тестовый доступ: admin/admin123, manager/admin123</div>
+        <div class="auth-footer" id="login-message">Тестовые креды: admin/admin123, manager/admin123</div>
       </div>
     </div>
   </section>
 
   <script src="/client.js"></script>
-  <script>
-    TaskFlowClient.initLoginPage();
-  </script>
+  <script>TaskFlowClient.initLoginPage();</script>
 </body>
 </html>
