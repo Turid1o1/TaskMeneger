@@ -344,7 +344,7 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if isLeadershipRole(input.Role) {
-				writeError(w, http.StatusForbidden, "начальник отдела может назначать только роли сотрудника или гостя")
+				writeError(w, http.StatusForbidden, "начальник отдела может назначать только роли сотрудника отдела или высшего руководства")
 				return
 			}
 		}
@@ -403,7 +403,7 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if isLeadershipRole(input.Role) {
-				writeError(w, http.StatusForbidden, "начальник отдела может назначать только роли сотрудника или гостя")
+				writeError(w, http.StatusForbidden, "начальник отдела может назначать только роли сотрудника отдела или высшего руководства")
 				return
 			}
 		}
@@ -415,7 +415,13 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"message": "пользователь обновлен"})
+		updated, err := s.repo.UserByID(r.Context(), userID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		s.decorateUserAvatar(&updated)
+		writeJSON(w, http.StatusOK, map[string]any{"message": "пользователь обновлен", "user": updated})
 	case http.MethodDelete:
 		if err := s.repo.DeleteUser(r.Context(), userID); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -455,11 +461,7 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": projects})
 	case http.MethodPost:
-		if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
-			return
-		}
-		actor, ok := s.actorFromRequest(w, r)
-		if !ok {
+		if !s.requireActorRole(w, r, "Owner", "Admin", "Deputy Admin") {
 			return
 		}
 		var input models.CreateProjectInput
@@ -469,10 +471,6 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request) {
 		}
 		if input.Name == "" || input.DepartmentID <= 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
-			return
-		}
-		if strings.EqualFold(actor.Role, "Project Manager") && input.DepartmentID != actor.DepartmentID {
-			writeError(w, http.StatusForbidden, "начальник отдела может создавать проекты только своего отдела")
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
@@ -505,7 +503,7 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return
 		}
-		isManager := strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") || strings.EqualFold(actor.Role, "Project Manager")
+		isManager := strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") || strings.EqualFold(actor.Role, "Deputy Admin")
 		allowed := isManager
 		if !allowed {
 			var err error
@@ -573,14 +571,9 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
+	if !s.requireActorRole(w, r, "Owner", "Admin", "Deputy Admin") {
 		return
 	}
-	actor, ok := s.actorFromRequest(w, r)
-	if !ok {
-		return
-	}
-
 	switch r.Method {
 	case http.MethodPut:
 		var input models.UpdateProjectInput
@@ -590,10 +583,6 @@ func (s *Server) projectTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		if input.Name == "" || input.DepartmentID <= 0 || len(input.CuratorIDs) < 1 || len(input.CuratorIDs) > 5 || len(input.AssigneeIDs) < 1 || len(input.AssigneeIDs) > 5 {
 			writeError(w, http.StatusBadRequest, "заполните обязательные поля")
-			return
-		}
-		if strings.EqualFold(actor.Role, "Project Manager") && input.DepartmentID != actor.DepartmentID {
-			writeError(w, http.StatusForbidden, "начальник отдела может редактировать проекты только своего отдела")
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
@@ -650,11 +639,7 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": tasks})
 	case http.MethodPost:
-		if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
-			return
-		}
-		actor, ok := s.actorFromRequest(w, r)
-		if !ok {
+		if !s.requireActorRole(w, r, "Owner", "Admin", "Deputy Admin") {
 			return
 		}
 		var input models.CreateTaskInput
@@ -669,10 +654,6 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 		departmentID, err := s.repo.ProjectDepartmentID(r.Context(), input.ProjectID)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if strings.EqualFold(actor.Role, "Project Manager") && departmentID != actor.DepartmentID {
-			writeError(w, http.StatusForbidden, "начальник отдела может создавать задачи только в проектах своего отдела")
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
@@ -705,7 +686,7 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return
 		}
-		isManager := strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") || strings.EqualFold(actor.Role, "Project Manager")
+		isManager := strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") || strings.EqualFold(actor.Role, "Deputy Admin")
 		allowed := isManager
 		if !allowed {
 			var err error
@@ -733,14 +714,9 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !s.requireActorRole(w, r, "Owner", "Admin", "Project Manager") {
+	if !s.requireActorRole(w, r, "Owner", "Admin", "Deputy Admin") {
 		return
 	}
-	actor, ok := s.actorFromRequest(w, r)
-	if !ok {
-		return
-	}
-
 	switch r.Method {
 	case http.MethodPut:
 		var input models.UpdateTaskInput
@@ -755,10 +731,6 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 		departmentID, err := s.repo.ProjectDepartmentID(r.Context(), input.ProjectID)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if strings.EqualFold(actor.Role, "Project Manager") && departmentID != actor.DepartmentID {
-			writeError(w, http.StatusForbidden, "начальник отдела может редактировать задачи только в проектах своего отдела")
 			return
 		}
 		allIDs := uniqueInt64(append(append([]int64{}, input.CuratorIDs...), input.AssigneeIDs...))
@@ -977,7 +949,7 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		isManager := strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") || strings.EqualFold(actor.Role, "Project Manager")
+		isManager := strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") || strings.EqualFold(actor.Role, "Deputy Admin")
 		if !isManager {
 			var allowed bool
 			switch targetType {
@@ -1081,26 +1053,77 @@ func (s *Server) departmentMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": items})
 	case http.MethodPost:
-		var in struct {
-			DepartmentID int64  `json:"department_id"`
-			Body         string `json:"body"`
+		body := ""
+		fileName := ""
+		filePath := ""
+		var fileSize int64
+
+		contentType := strings.ToLower(r.Header.Get("Content-Type"))
+		if strings.Contains(contentType, "multipart/form-data") {
+			if err := r.ParseMultipartForm(maxTaskChatAttachmentBytes + (1 << 20)); err != nil {
+				writeError(w, http.StatusBadRequest, "не удалось обработать форму")
+				return
+			}
+			if rawDepartmentID := strings.TrimSpace(r.FormValue("department_id")); rawDepartmentID != "" {
+				departmentValue, err := strconv.ParseInt(rawDepartmentID, 10, 64)
+				if err != nil || departmentValue <= 0 {
+					writeError(w, http.StatusBadRequest, "некорректный department_id")
+					return
+				}
+				targetDepartmentID = departmentValue
+			}
+			body = strings.TrimSpace(r.FormValue("body"))
+			file, header, err := r.FormFile("file")
+			if err != nil && !errors.Is(err, http.ErrMissingFile) {
+				writeError(w, http.StatusBadRequest, "не удалось прочитать вложение")
+				return
+			}
+			if err == nil {
+				defer file.Close()
+				data, err := io.ReadAll(io.LimitReader(file, maxTaskChatAttachmentBytes+1))
+				if err != nil {
+					writeError(w, http.StatusBadRequest, "не удалось прочитать вложение")
+					return
+				}
+				if int64(len(data)) > maxTaskChatAttachmentBytes {
+					writeError(w, http.StatusBadRequest, "слишком большой файл")
+					return
+				}
+				if len(data) > 0 {
+					baseDir := filepath.Join(filepath.Dir(s.staticPath), "data", "messages")
+					savedPath, size, err := s.repo.SaveChatFile(baseDir, header.Filename, data)
+					if err != nil {
+						writeError(w, http.StatusInternalServerError, err.Error())
+						return
+					}
+					fileName = header.Filename
+					filePath = savedPath
+					fileSize = size
+				}
+			}
+		} else {
+			var in struct {
+				DepartmentID int64  `json:"department_id"`
+				Body         string `json:"body"`
+			}
+			if err := decodeJSON(r, &in); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			body = strings.TrimSpace(in.Body)
+			if in.DepartmentID > 0 {
+				targetDepartmentID = in.DepartmentID
+			}
 		}
-		if err := decodeJSON(r, &in); err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
+		if body == "" && filePath == "" {
+			writeError(w, http.StatusBadRequest, "заполните сообщение")
 			return
-		}
-		if strings.TrimSpace(in.Body) == "" {
-			writeError(w, http.StatusBadRequest, "текст сообщения пуст")
-			return
-		}
-		if in.DepartmentID > 0 {
-			targetDepartmentID = in.DepartmentID
 		}
 		if !isSuperRole(actor.Role) && targetDepartmentID != actor.DepartmentID {
 			writeError(w, http.StatusForbidden, "доступ только к чату своего отдела")
 			return
 		}
-		if err := s.repo.CreateDepartmentMessage(r.Context(), targetDepartmentID, actor.ID, in.Body, "", "", 0); err != nil {
+		if err := s.repo.CreateDepartmentMessage(r.Context(), targetDepartmentID, actor.ID, body, fileName, filePath, fileSize); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -1247,13 +1270,21 @@ func (s *Server) messageFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
-	taskID, filePath, fileName, _, err := s.repo.MessageFilePath(r.Context(), messageID)
+	scopeType, scopeID, filePath, fileName, _, err := s.repo.MessageFilePath(r.Context(), messageID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	departmentID, err := s.repo.TaskDepartmentID(r.Context(), taskID)
-	if err != nil {
+	var departmentID int64
+	if strings.EqualFold(scopeType, "task") {
+		departmentID, err = s.repo.TaskDepartmentID(r.Context(), scopeID)
+		if err != nil {
+			writeError(w, http.StatusForbidden, "нет доступа")
+			return
+		}
+	} else if strings.EqualFold(scopeType, "department") {
+		departmentID = scopeID
+	} else {
 		writeError(w, http.StatusForbidden, "нет доступа")
 		return
 	}

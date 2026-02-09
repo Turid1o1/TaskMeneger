@@ -463,6 +463,12 @@ textarea { min-height: 90px; }
 #view-task-chat .row-actions input[type="text"] {
   flex: 1;
 }
+.messenger-input-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+}
+#department-chat-file { width: 240px; }
 .chat-msg-file {
   margin-top: var(--space-8);
   font-size: 13px;
@@ -680,6 +686,7 @@ textarea { min-height: 90px; }
   .auth-card { width: 100%; max-height: none; }
   .auth-card h1 { font-size: clamp(28px, 8.2vw, 40px); }
   .auth-sub { font-size: clamp(15px, 4.8vw, 22px); }
-  .task-chat-input-row { grid-template-columns: 1fr; }
+  .task-chat-input-row, .messenger-input-row { grid-template-columns: 1fr; }
   #task-chat-full-file { width: 100%; }
+  #department-chat-file { width: 100%; }
 }

@@ -138,7 +138,7 @@
       try {
         const data = await api('/api/v1/departments');
         const items = data.items || [];
-        fillSelect(depSelect, items, 'id', 'name', true);
+        fillSelect(depSelect, items, 'id', (d) => departmentWithUCS(d.name), true);
         if (depSelect.options.length) depSelect.options[0].textContent = '';
         const firstDepID = items.length ? Number(items[0].id) : 0;
         fillPositionSelect(posSelect, firstDepID, '', true);
@@ -336,8 +336,15 @@
     if (v === 'admin') return 'Начальник УЦС';
     if (v === 'deputy admin') return 'Заместитель начальника УЦС';
     if (v === 'project manager') return 'Начальник отдела';
-    if (v === 'guest') return 'Гость';
+    if (v === 'guest') return 'Высшее руководство';
     return 'Сотрудник отдела';
+  }
+
+  function departmentWithUCS(name) {
+    const clean = String(name || '').trim();
+    if (!clean) return '';
+    if (clean.includes('(УЦС)')) return clean;
+    return `${clean} (УЦС)`;
   }
 
   function departmentLabel(departmentID, departments) {
@@ -405,7 +412,8 @@
     }
 
     renderSessionUser(session);
-    const canManage = ['Owner', 'Admin', 'Deputy Admin', 'Project Manager'].includes(session.role);
+    const canManageUsersOnly = ['Owner', 'Admin', 'Deputy Admin', 'Project Manager'].includes(session.role);
+    const canManageWorkItems = ['Owner', 'Admin', 'Deputy Admin'].includes(session.role);
     const isSuper = ['Owner', 'Admin', 'Deputy Admin'].includes(session.role);
     const isScopedRole = ['Member', 'Guest'].includes(session.role);
 
@@ -450,6 +458,11 @@
         btn.dataset.view = 'tasks';
         if (!btn.textContent.includes('Назад')) return;
         btn.textContent = 'Назад к задачам';
+      });
+    }
+    if (!canManageWorkItems) {
+      document.querySelectorAll('button[data-view="project-editor"], button[data-view="task-editor"]').forEach((btn) => {
+        btn.style.display = 'none';
       });
     }
 
@@ -562,7 +575,7 @@
     }
 
     function applyUserEditorPermissions() {
-      if (!canManage) return;
+      if (!canManageUsersOnly) return;
       const roleSelect = document.getElementById('user-role');
       const departmentSelect = document.getElementById('user-department');
       if (session.role !== 'Project Manager') {
@@ -873,14 +886,25 @@
     async function sendDepartmentMessage() {
       const depSelect = document.getElementById('messenger-department-select');
       const input = document.getElementById('department-chat-input');
+      const fileInput = document.getElementById('department-chat-file');
       const depID = Number(depSelect?.value || session.department_id || 0);
       const body = String(input?.value || '').trim();
-      if (!depID || !body) return;
-      await api('/api/v1/messages/department', {
-        method: 'POST',
-        body: JSON.stringify({ department_id: depID, body })
-      });
+      const file = fileInput?.files?.[0];
+      if (!depID || (!body && !file)) return;
+      if (file) {
+        const form = new FormData();
+        form.append('department_id', String(depID));
+        form.append('body', body);
+        form.append('file', file);
+        await apiMultipart('/api/v1/messages/department', form);
+      } else {
+        await api('/api/v1/messages/department', {
+          method: 'POST',
+          body: JSON.stringify({ department_id: depID, body })
+        });
+      }
       if (input) input.value = '';
+      if (fileInput) fileInput.value = '';
       await loadDepartmentChat();
     }
 
@@ -943,14 +967,14 @@
           name: session.department_name || 'Мой отдел'
         }];
         fillSelect(document.getElementById('project-department'), departments, 'id', 'name', true);
-        fillSelect(document.getElementById('user-department'), departments, 'id', 'name', false);
+        fillSelect(document.getElementById('user-department'), departments, 'id', (d) => departmentWithUCS(d.name), false);
         fillMessengerSelectors();
         return;
       }
       const data = await api('/api/v1/departments');
       departments = data.items || [];
       fillSelect(document.getElementById('project-department'), departments, 'id', 'name', true);
-      fillSelect(document.getElementById('user-department'), departments, 'id', 'name', false);
+      fillSelect(document.getElementById('user-department'), departments, 'id', (d) => departmentWithUCS(d.name), false);
       fillMessengerSelectors();
     }
 
@@ -979,7 +1003,7 @@
       tbody.innerHTML = '';
       users.forEach(u => {
         const tr = document.createElement('tr');
-        const actions = canManage
+        const actions = canManageUsersOnly
           ? `<button class="btn btn-sm btn-secondary edit-user-btn" data-id="${u.id}">Редактировать</button>
              <button class="btn btn-sm btn-secondary delete-user-btn" data-id="${u.id}">Удалить</button>`
           : '—';
@@ -1005,7 +1029,7 @@
         const tr = document.createElement('tr');
         const displayID = (pagination.projects.page - 1) * pagination.projects.perPage + idx + 1;
         const baseActions = [];
-        if (canManage) {
+        if (canManageWorkItems) {
           baseActions.push(`<button class="btn btn-sm btn-secondary edit-project-btn" data-id="${p.id}">Редактировать</button>`);
           baseActions.push(`<button class="btn btn-sm btn-secondary delete-project-btn" data-id="${p.id}">Удалить</button>`);
         }
@@ -1033,7 +1057,7 @@
         const tr = document.createElement('tr');
         const displayID = (pagination.tasks.page - 1) * pagination.tasks.perPage + idx + 1;
         const baseActions = [];
-        if (canManage) {
+        if (canManageWorkItems) {
           baseActions.push(`<button class="btn btn-sm btn-secondary edit-task-btn" data-id="${t.id}">Редактировать</button>`);
           baseActions.push(`<button class="btn btn-sm btn-secondary delete-task-btn" data-id="${t.id}">Удалить</button>`);
         }
@@ -1163,7 +1187,7 @@
       };
       const msg = document.getElementById('project-editor-message');
       try {
-        if (!canManage) throw new Error('Недостаточно прав');
+        if (!canManageWorkItems) throw new Error('Недостаточно прав');
         if (!payload.name || !payload.department_id) throw new Error('Заполните поля проекта');
         if (curatorIDs.length < 1 || curatorIDs.length > 5) throw new Error('Выберите от 1 до 5 кураторов');
         if (assigneeIDs.length < 1 || assigneeIDs.length > 5) throw new Error('Выберите от 1 до 5 исполнителей');
@@ -1197,7 +1221,7 @@
       };
       const msg = document.getElementById('task-editor-message');
       try {
-        if (!canManage) throw new Error('Недостаточно прав');
+        if (!canManageWorkItems) throw new Error('Недостаточно прав');
         if (!payload.title || !payload.project_id) throw new Error('Заполните обязательные поля задачи');
         if (curatorIDs.length < 1 || curatorIDs.length > 5) throw new Error('Выберите от 1 до 5 кураторов');
         if (assigneeIDs.length < 1 || assigneeIDs.length > 5) throw new Error('Выберите от 1 до 5 исполнителей');
@@ -1232,11 +1256,23 @@
       };
       const msg = document.getElementById('user-editor-message');
       try {
-        if (!canManage) throw new Error('Недостаточно прав');
+        if (!canManageUsersOnly) throw new Error('Недостаточно прав');
         if (!editingUserID) throw new Error('Сначала выберите пользователя');
         if (!payload.login || !payload.full_name || !payload.position || !payload.department_id) throw new Error('Заполните поля пользователя');
-        await api(`/api/v1/users/${editingUserID}`, { method: 'PUT', body: JSON.stringify(payload) });
+        const response = await api(`/api/v1/users/${editingUserID}`, { method: 'PUT', body: JSON.stringify(payload) });
         msg.textContent = 'Пользователь обновлен';
+        if (Number(editingUserID) === Number(session.id)) {
+          const updatedUser = response.user || {
+            ...session,
+            login: payload.login,
+            full_name: payload.full_name,
+            position: payload.position,
+            role: payload.role,
+            department_id: payload.department_id
+          };
+          setSession(updatedUser);
+          renderSessionUser(updatedUser);
+        }
         await loadUsers();
         resetUserEditor();
       } catch (e) { msg.textContent = e.message; }
@@ -1384,7 +1420,7 @@
     }
 
     async function deleteProject(id) {
-      if (!canManage) return;
+      if (!canManageWorkItems) return;
       if (!confirm('Удалить проект и все его задачи?')) return;
       await api(`/api/v1/projects/${id}`, { method: 'DELETE' });
       await loadProjects();
@@ -1392,7 +1428,7 @@
     }
 
     async function deleteTask(id) {
-      if (!canManage) return;
+      if (!canManageWorkItems) return;
       if (!confirm('Удалить задачу?')) return;
       await api(`/api/v1/tasks/${id}`, { method: 'DELETE' });
       await loadTasks();
@@ -1413,7 +1449,7 @@
     }
 
     async function deleteUser(id) {
-      if (!canManage) return;
+      if (!canManageUsersOnly) return;
       if (!confirm('Удалить пользователя?')) return;
       await api(`/api/v1/users/${id}`, { method: 'DELETE' });
       await loadUsers();
@@ -1427,10 +1463,18 @@
         e.preventDefault();
         const requestedView = viewBtn.dataset.view;
         if (requestedView === 'project-editor') {
+          if (!canManageWorkItems) {
+            setView('projects');
+            return;
+          }
           resetProjectEditor();
           refreshStaffSelectors();
         }
         if (requestedView === 'task-editor') {
+          if (!canManageWorkItems) {
+            setView('tasks');
+            return;
+          }
           resetTaskEditor();
           refreshStaffSelectors();
         }
@@ -1644,7 +1688,7 @@
     });
     try {
       await loadDepartments();
-      if (canManage) {
+      if (canManageUsersOnly) {
         await loadUsers();
       }
       await loadProjects();

@@ -1288,24 +1288,25 @@ func (r *Repository) SaveChatFile(baseDir, originalName string, content []byte) 
 	return fullPath, int64(len(content)), nil
 }
 
-func (r *Repository) MessageFilePath(ctx context.Context, messageID int64) (int64, string, string, int64, error) {
+func (r *Repository) MessageFilePath(ctx context.Context, messageID int64) (string, int64, string, string, int64, error) {
 	var scopeID, fileSize int64
+	var scopeType string
 	var filePath, fileName string
 	err := r.db.QueryRowContext(ctx, `
-SELECT scope_id, file_path, file_name, file_size
+SELECT scope_type, scope_id, file_path, file_name, file_size
 FROM chat_messages
-WHERE id = ? AND scope_type = 'task'
-`, messageID).Scan(&scopeID, &filePath, &fileName, &fileSize)
+WHERE id = ?
+`, messageID).Scan(&scopeType, &scopeID, &filePath, &fileName, &fileSize)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, "", "", 0, errors.New("сообщение не найдено")
+			return "", 0, "", "", 0, errors.New("сообщение не найдено")
 		}
-		return 0, "", "", 0, fmt.Errorf("get message file: %w", err)
+		return "", 0, "", "", 0, fmt.Errorf("get message file: %w", err)
 	}
 	if strings.TrimSpace(filePath) == "" {
-		return 0, "", "", 0, errors.New("вложение не найдено")
+		return "", 0, "", "", 0, errors.New("вложение не найдено")
 	}
-	return scopeID, filePath, fileName, fileSize, nil
+	return scopeType, scopeID, filePath, fileName, fileSize, nil
 }
 
 func (r *Repository) taskAssignees(ctx context.Context, taskID int64) ([]models.User, error) {

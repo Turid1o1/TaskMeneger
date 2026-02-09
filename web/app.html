@@ -51,6 +51,33 @@
           <button class="info-box settings-link" data-view="settings-security"><h3>Безопасность</h3><p>2FA, политика пароля, лимит попыток, сессия</p></button>
           <button class="info-box settings-link" data-view="settings-notify"><h3>Уведомления</h3><p>Email, в приложении, дайджест, просрочки</p></button>
           <button class="info-box settings-link" data-view="users"><h3>Пользователи</h3><p>Создание, редактирование, удаление</p></button>
+          <button class="info-box settings-link" data-view="settings-matrix"><h3>Матрица ролей</h3><p>Роли, доступ и ограничения по отделам</p></button>
+        </div>
+      </section>
+
+      <section class="view" id="view-settings-matrix">
+        <div class="header-row"><div><h1>Матрица ролей</h1></div><button class="btn btn-md btn-secondary" data-view="settings">Назад</button></div>
+        <div class="editor-box">
+          <div class="table-scroll">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Роль</th>
+                  <th>Доступ к проектам/задачам</th>
+                  <th>Управление пользователями</th>
+                  <th>Ограничение по отделу</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Владелец</td><td>Полный</td><td>Полный</td><td>Нет</td></tr>
+                <tr><td>Начальник УЦС</td><td>Полный</td><td>Полный</td><td>Нет</td></tr>
+                <tr><td>Заместитель начальника УЦС</td><td>Полный</td><td>Полный</td><td>Нет</td></tr>
+                <tr><td>Начальник отдела</td><td>Просмотр + отчеты</td><td>Создание/редактирование/удаление сотрудников</td><td>Только свой отдел</td></tr>
+                <tr><td>Сотрудник отдела</td><td>Только назначенные задачи/проекты</td><td>Нет</td><td>Только свой отдел</td></tr>
+                <tr><td>Высшее руководство</td><td>Только просмотр в рамках отдела</td><td>Нет</td><td>Только свой отдел</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -133,8 +160,9 @@
             </div>
           </div>
           <div class="chat-log" id="department-chat-log"></div>
-          <div class="row-actions">
+          <div class="row-actions messenger-input-row">
             <input id="department-chat-input" placeholder="Сообщение в чат отдела">
+            <input id="department-chat-file" type="file">
             <button class="btn btn-md btn-primary" id="send-department-message-btn">Отправить</button>
           </div>
         </div>
@@ -325,7 +353,7 @@
             <div><label>ФИО</label><input id="user-fullname"></div>
             <div><label>Должность</label><select id="user-position"></select></div>
             <div><label>Отдел/Подразделение</label><select id="user-department"></select></div>
-            <div><label>Роль</label><select id="user-role"><option value="Owner">Владелец</option><option value="Admin">Начальник УЦС</option><option value="Deputy Admin">Заместитель начальника УЦС</option><option value="Project Manager">Начальник отдела</option><option value="Member">Сотрудник отдела</option><option value="Guest">Гость</option></select></div>
+            <div><label>Роль</label><select id="user-role"><option value="Owner">Владелец</option><option value="Admin">Начальник УЦС</option><option value="Deputy Admin">Заместитель начальника УЦС</option><option value="Project Manager">Начальник отдела</option><option value="Member">Сотрудник отдела</option><option value="Guest">Высшее руководство</option></select></div>
           </div>
           <div class="row-actions">
             <button class="btn btn-md btn-primary" id="save-user-btn">Сохранить</button>
