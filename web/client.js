@@ -1,6 +1,8 @@
 (function () {
   const SESSION_KEY = 'taskflow_session';
   const SETTINGS_KEY = 'taskflow_settings';
+  const UCS_VIRTUAL_ID = 'ucs';
+  const UCS_VIRTUAL_NAME = 'Управление цифровых сервисов';
   const UCS_TOP_POSITIONS = [
     'Начальник УЦС',
     'Заместитель начальника УЦС'
@@ -141,8 +143,7 @@
         const data = await api('/api/v1/departments', { noActor: true });
         const items = data.items || [];
         fillDepartmentSelect(depSelect, items, true);
-        const firstDepID = items.length ? Number(items[0].id) : 0;
-        fillPositionSelect(posSelect, firstDepID, '', true);
+        fillPositionSelect(posSelect, '', '', true);
         if (posSelect.options.length) posSelect.options[0].textContent = '';
         posSelect.value = '';
       } catch (e) {
@@ -151,7 +152,7 @@
     }
 
     depSelect?.addEventListener('change', () => {
-      const depID = Number(depSelect.value || 0);
+      const depID = String(depSelect.value || '');
       fillPositionSelect(posSelect, depID, '', true);
       if (posSelect.options.length) posSelect.options[0].textContent = '';
       posSelect.value = '';
@@ -165,7 +166,10 @@
         repeat_password: document.getElementById('reg-password-repeat').value,
         full_name: document.getElementById('reg-fullname').value.trim(),
         position: document.getElementById('reg-position').value.trim(),
-        department_id: Number(document.getElementById('reg-department').value || 0)
+        department_id: normalizeDepartmentID(
+          document.getElementById('reg-department').value || '',
+          document.getElementById('reg-department')?.dataset?.ucsFallbackId || 0
+        )
       };
       try {
         if (!payload.department_id) throw new Error('Выберите отдел');
@@ -209,7 +213,17 @@
     });
   }
 
+  function normalizeDepartmentID(rawValue, fallbackID) {
+    const raw = String(rawValue || '').trim();
+    if (!raw) return 0;
+    if (raw === UCS_VIRTUAL_ID) return Number(fallbackID || 0);
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : 0;
+  }
+
   function positionOptionsByDepartment(departmentID) {
+    const key = String(departmentID || '').trim().toLowerCase();
+    if (key === UCS_VIRTUAL_ID) return UCS_TOP_POSITIONS.slice();
     const items = POSITIONS_BY_DEPARTMENT[Number(departmentID)] || [];
     return items.slice();
   }
@@ -344,15 +358,22 @@
   function fillDepartmentSelect(select, items, withEmpty) {
     if (!select) return;
     select.innerHTML = '';
+    const departments = items || [];
+    const fallbackID = departments.length ? Number(departments[0].id) : 0;
+    select.dataset.ucsFallbackId = String(fallbackID || 0);
     if (withEmpty) {
       const empty = document.createElement('option');
       empty.value = '';
       empty.textContent = '';
       select.appendChild(empty);
     }
+    const ucsOption = document.createElement('option');
+    ucsOption.value = UCS_VIRTUAL_ID;
+    ucsOption.textContent = UCS_VIRTUAL_NAME;
+    select.appendChild(ucsOption);
     const group = document.createElement('optgroup');
-    group.label = 'УЦС';
-    (items || []).forEach((item) => {
+    group.label = 'Подразделения';
+    departments.forEach((item) => {
       const option = document.createElement('option');
       option.value = item.id;
       option.textContent = item.name;
@@ -585,7 +606,8 @@
     }
 
     function refreshUserPositionOptions(selectedValue) {
-      fillAllPositionSelect(document.getElementById('user-position'), selectedValue || '', false);
+      const depRaw = document.getElementById('user-department')?.value || '';
+      fillPositionSelect(document.getElementById('user-position'), depRaw, selectedValue || '', false);
     }
 
     function applyUserEditorPermissions() {
@@ -1253,7 +1275,10 @@
     }
 
     async function saveUser() {
-      let departmentID = Number(document.getElementById('user-department').value || 0);
+      let departmentID = normalizeDepartmentID(
+        document.getElementById('user-department').value || '',
+        document.getElementById('user-department')?.dataset?.ucsFallbackId || 0
+      );
       let role = document.getElementById('user-role').value;
       if (session.role === 'Project Manager') {
         departmentID = Number(session.department_id || 0);
