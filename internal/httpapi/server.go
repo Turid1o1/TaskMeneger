@@ -214,6 +214,22 @@ func parseReportFilePath(path string) (int64, bool) {
 	return id, true
 }
 
+func parseReportEntityPath(path string) (int64, bool) {
+	// /api/v1/reports/{id}
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 4 {
+		return 0, false
+	}
+	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "reports" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(parts[3], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
+}
+
 func parseMessageFilePath(path string) (int64, bool) {
 	// /api/v1/messages/file/{id}
 	parts := strings.Split(strings.Trim(path, "/"), "/")

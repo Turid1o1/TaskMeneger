@@ -423,11 +423,16 @@ func (s *Server) userRole(w http.ResponseWriter, r *http.Request) {
 		s.decorateUserAvatar(&updated)
 		writeJSON(w, http.StatusOK, map[string]any{"message": "пользователь обновлен", "user": updated})
 	case http.MethodDelete:
-		if err := s.repo.DeleteUser(r.Context(), userID); err != nil {
+		replacementName, err := s.repo.DeleteUser(r.Context(), userID)
+		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"message": "пользователь удален"})
+		msg := "пользователь удален"
+		if strings.TrimSpace(replacementName) != "" {
+			msg = fmt.Sprintf("пользователь удален, привязки переданы: %s", replacementName)
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": msg})
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
@@ -1147,13 +1152,13 @@ func (s *Server) taskMessages(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "нужен task_id")
 		return
 	}
-	departmentID, err := s.repo.TaskDepartmentID(r.Context(), *taskID)
+	allowed, err := s.repo.IsTaskParticipant(r.Context(), *taskID, actor.ID)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if !isSuperRole(actor.Role) && departmentID != actor.DepartmentID {
-		writeError(w, http.StatusForbidden, "доступ только к задачам своего отдела")
+	if !allowed {
+		writeError(w, http.StatusForbidden, "чат задачи доступен только кураторам и исполнителям этой задачи")
 		return
 	}
 
@@ -1236,16 +1241,16 @@ func (s *Server) taskMessages(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		targetDepartmentID, err := s.repo.TaskDepartmentID(r.Context(), targetTaskID)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if !isSuperRole(actor.Role) && targetDepartmentID != actor.DepartmentID {
-			writeError(w, http.StatusForbidden, "доступ только к задачам своего отдела")
-			return
-		}
-		if err := s.repo.CreateTaskMessage(r.Context(), targetTaskID, actor.ID, body, fileName, filePath, fileSize); err != nil {
+			allowed, err := s.repo.IsTaskParticipant(r.Context(), targetTaskID, actor.ID)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			if !allowed {
+				writeError(w, http.StatusForbidden, "чат задачи доступен только кураторам и исполнителям этой задачи")
+				return
+			}
+			if err := s.repo.CreateTaskMessage(r.Context(), targetTaskID, actor.ID, body, fileName, filePath, fileSize); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -1277,8 +1282,12 @@ func (s *Server) messageFile(w http.ResponseWriter, r *http.Request) {
 	}
 	var departmentID int64
 	if strings.EqualFold(scopeType, "task") {
-		departmentID, err = s.repo.TaskDepartmentID(r.Context(), scopeID)
+		allowed, err := s.repo.IsTaskParticipant(r.Context(), scopeID, actor.ID)
 		if err != nil {
+			writeError(w, http.StatusForbidden, "нет доступа")
+			return
+		}
+		if !allowed {
 			writeError(w, http.StatusForbidden, "нет доступа")
 			return
 		}
@@ -1288,7 +1297,7 @@ func (s *Server) messageFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "нет доступа")
 		return
 	}
-	if !isSuperRole(actor.Role) && actor.DepartmentID != departmentID {
+	if strings.EqualFold(scopeType, "department") && !isSuperRole(actor.Role) && actor.DepartmentID != departmentID {
 		writeError(w, http.StatusForbidden, "нет доступа")
 		return
 	}
@@ -1309,6 +1318,43 @@ func (s *Server) messageFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) reportFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodDelete {
+		reportID, ok := parseReportEntityPath(r.URL.Path)
+		if !ok {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
+		_, _, authorID, departmentID, filePath, _, err := s.repo.ReportMeta(r.Context(), reportID)
+		if err != nil {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		allowed := false
+		if isSuperRole(actor.Role) {
+			allowed = true
+		} else if strings.EqualFold(actor.Role, "Project Manager") {
+			allowed = actor.DepartmentID == departmentID
+		} else {
+			allowed = actor.ID == authorID
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "нет прав на удаление отчета")
+			return
+		}
+		if err := s.repo.DeleteReport(r.Context(), reportID); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if strings.TrimSpace(filePath) != "" {
+			_ = os.Remove(filePath)
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "отчет удален"})
+		return
+	}
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return

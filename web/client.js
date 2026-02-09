@@ -296,6 +296,10 @@
     return (users || []).map(u => u.full_name).join(', ') || '—';
   }
 
+  function hasUserInListByID(users, userID) {
+    return (users || []).some((u) => Number(u.id) === Number(userID));
+  }
+
   function escapeHTML(value) {
     return String(value || '')
       .replaceAll('&', '&amp;')
@@ -1099,7 +1103,10 @@
           baseActions.push(`<button class="btn btn-sm btn-secondary edit-task-btn" data-id="${t.id}">Редактировать</button>`);
           baseActions.push(`<button class="btn btn-sm btn-secondary delete-task-btn" data-id="${t.id}">Удалить</button>`);
         }
-        baseActions.push(`<button class="btn btn-sm btn-secondary open-task-chat-btn" data-id="${t.id}">Чат</button>`);
+        const canOpenTaskChat = hasUserInListByID(t.curators, session.id) || hasUserInListByID(t.assignees, session.id);
+        if (canOpenTaskChat) {
+          baseActions.push(`<button class="btn btn-sm btn-secondary open-task-chat-btn" data-id="${t.id}">Чат</button>`);
+        }
         baseActions.push(`<button class="btn btn-sm btn-secondary interim-task-report-btn" data-id="${t.id}">Промеж. отчет</button>`);
         baseActions.push(`<button class="btn btn-sm btn-success close-task-btn" data-id="${t.id}">Закрыть</button>`);
         const normalizedStatus = String(t.status || '').toLowerCase();
@@ -1127,7 +1134,9 @@
         const displayID = (pagination.reports.page - 1) * pagination.reports.perPage + idx + 1;
         const fileCell = r.file_name ? `<a href="/api/v1/reports/${r.id}/file" target="_blank">${r.file_name}</a>` : '—';
         const kind = String(r.target_type).toLowerCase() === 'project' ? 'Проект' : 'Задача';
-        tr.innerHTML = `<td title="ID ${r.id}">${displayID}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.result_status || 'Завершено')}</td><td>${escapeHTML(r.author_name)}</td><td><div class="report-title-cell"><div class="report-title-text" title="${escapeHTML(r.title)}">${escapeHTML(r.title)}</div><button class="btn btn-sm btn-secondary toggle-report-btn" data-id="${r.id}">Подробнее</button></div></td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td>`;
+        const canDeleteReport = canManageUsersOnly || Number(r.author_id || 0) === Number(session.id || 0);
+        const reportActions = `<button class="btn btn-sm btn-secondary toggle-report-btn" data-id="${r.id}">Подробнее</button>${canDeleteReport ? ` <button class="btn btn-sm btn-secondary delete-report-btn" data-id="${r.id}">Удалить</button>` : ''}`;
+        tr.innerHTML = `<td title="ID ${r.id}">${displayID}</td><td>${kind}</td><td>${escapeHTML(r.target_label)}</td><td>${escapeHTML(r.result_status || 'Завершено')}</td><td>${escapeHTML(r.author_name)}</td><td><div class="report-title-cell"><div class="report-title-text" title="${escapeHTML(r.title)}">${escapeHTML(r.title)}</div>${reportActions}</div></td><td>${fileCell}</td><td>${escapeHTML(r.created_at)}</td>`;
         tbody.appendChild(tr);
 
         const detailsTr = document.createElement('tr');
@@ -1493,18 +1502,25 @@
     async function deleteUser(id) {
       if (!canManageUsersOnly) return;
       if (!confirm('Удалить пользователя?')) return;
-      await api(`/api/v1/users/${id}`, { method: 'DELETE' });
+      const payload = await api(`/api/v1/users/${id}`, { method: 'DELETE' });
       await loadUsers();
       await loadProjects();
       await loadTasks();
       if (Number(editingUserID) === Number(id)) {
         resetUserEditor();
       }
+      if (payload?.message) alert(payload.message);
     }
 
     async function deleteUserFromEditor() {
       if (!editingUserID) return;
       await deleteUser(editingUserID);
+    }
+
+    async function deleteReport(id) {
+      if (!confirm('Удалить отчет?')) return;
+      await api(`/api/v1/reports/${id}`, { method: 'DELETE' });
+      await loadReports();
     }
 
     document.addEventListener('click', async (e) => {
@@ -1628,6 +1644,11 @@
         const isHidden = row.classList.contains('hidden');
         row.classList.toggle('hidden', !isHidden);
         reportBtn.textContent = isHidden ? 'Свернуть' : 'Подробнее';
+      }
+
+      const deleteReportBtn = e.target.closest('.delete-report-btn');
+      if (deleteReportBtn) {
+        try { await deleteReport(deleteReportBtn.dataset.id); } catch (err) { alert(err.message); }
       }
     });
 
