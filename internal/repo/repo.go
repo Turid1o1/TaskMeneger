@@ -241,11 +241,53 @@ WHERE id = ?
 }
 
 func (r *Repository) DeleteUser(ctx context.Context, userID int64) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, userID)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "foreign key") {
-			return errors.New("нельзя удалить пользователя: он привязан к проектам или задачам")
+		return fmt.Errorf("begin tx delete user: %w", err)
+	}
+	defer tx.Rollback()
+
+	var departmentID int64
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(department_id, 1) FROM users WHERE id = ?`, userID).Scan(&departmentID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("пользователь не найден")
 		}
+		return fmt.Errorf("load user department: %w", err)
+	}
+
+	replacementUserID, err := r.pickReplacementUserIDTx(ctx, tx, userID, departmentID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM project_curators WHERE user_id = ?`, userID); err != nil {
+		return fmt.Errorf("delete project_curators by user: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM project_assignees WHERE user_id = ?`, userID); err != nil {
+		return fmt.Errorf("delete project_assignees by user: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM task_curators WHERE user_id = ?`, userID); err != nil {
+		return fmt.Errorf("delete task_curators by user: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM task_assignees WHERE user_id = ?`, userID); err != nil {
+		return fmt.Errorf("delete task_assignees by user: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `UPDATE projects SET curator_user_id = ? WHERE curator_user_id = ?`, replacementUserID, userID); err != nil {
+		return fmt.Errorf("reassign projects curator: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE tasks SET curator_user_id = ? WHERE curator_user_id = ?`, replacementUserID, userID); err != nil {
+		return fmt.Errorf("reassign tasks curator: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE reports SET author_user_id = ? WHERE author_user_id = ?`, replacementUserID, userID); err != nil {
+		return fmt.Errorf("reassign reports author: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE chat_messages SET author_user_id = ? WHERE author_user_id = ?`, replacementUserID, userID); err != nil {
+		return fmt.Errorf("reassign chat author: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, userID)
+	if err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
 	affected, err := res.RowsAffected()
@@ -255,7 +297,38 @@ func (r *Repository) DeleteUser(ctx context.Context, userID int64) error {
 	if affected == 0 {
 		return errors.New("пользователь не найден")
 	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete user: %w", err)
+	}
 	return nil
+}
+
+func (r *Repository) pickReplacementUserIDTx(ctx context.Context, tx *sql.Tx, deletingUserID, deletingDepartmentID int64) (int64, error) {
+	var replacementID int64
+	err := tx.QueryRowContext(ctx, `
+SELECT id
+FROM users
+WHERE id <> ?
+ORDER BY
+  CASE WHEN COALESCE(department_id, 1) = ? THEN 0 ELSE 1 END,
+  CASE role
+    WHEN 'Owner' THEN 0
+    WHEN 'Admin' THEN 1
+    WHEN 'Deputy Admin' THEN 2
+    WHEN 'Project Manager' THEN 3
+    ELSE 4
+  END,
+  id
+LIMIT 1
+`, deletingUserID, deletingDepartmentID).Scan(&replacementID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, errors.New("нельзя удалить последнего пользователя")
+		}
+		return 0, fmt.Errorf("pick replacement user: %w", err)
+	}
+	return replacementID, nil
 }
 
 func (r *Repository) Projects(ctx context.Context) ([]models.Project, error) {
