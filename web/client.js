@@ -80,11 +80,13 @@
   }
 
   async function api(path, options) {
+    const useActor = !(options && options.noActor === true);
+    const actor = useActor ? actorHeaders() : {};
     const res = await fetch(path, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        ...actorHeaders(),
+        ...actor,
         ...(options && options.headers ? options.headers : {})
       }
     });
@@ -136,10 +138,9 @@
 
     async function loadRegisterMeta() {
       try {
-        const data = await api('/api/v1/departments');
+        const data = await api('/api/v1/departments', { noActor: true });
         const items = data.items || [];
-        fillSelect(depSelect, items, 'id', (d) => departmentWithUCS(d.name), true);
-        if (depSelect.options.length) depSelect.options[0].textContent = '';
+        fillDepartmentSelect(depSelect, items, true);
         const firstDepID = items.length ? Number(items[0].id) : 0;
         fillPositionSelect(posSelect, firstDepID, '', true);
         if (posSelect.options.length) posSelect.options[0].textContent = '';
@@ -340,11 +341,24 @@
     return 'Сотрудник отдела';
   }
 
-  function departmentWithUCS(name) {
-    const clean = String(name || '').trim();
-    if (!clean) return '';
-    if (clean.includes('(УЦС)')) return clean;
-    return `${clean} (УЦС)`;
+  function fillDepartmentSelect(select, items, withEmpty) {
+    if (!select) return;
+    select.innerHTML = '';
+    if (withEmpty) {
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = '';
+      select.appendChild(empty);
+    }
+    const group = document.createElement('optgroup');
+    group.label = 'УЦС';
+    (items || []).forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.name;
+      group.appendChild(option);
+    });
+    select.appendChild(group);
   }
 
   function departmentLabel(departmentID, departments) {
@@ -967,14 +981,14 @@
           name: session.department_name || 'Мой отдел'
         }];
         fillSelect(document.getElementById('project-department'), departments, 'id', 'name', true);
-        fillSelect(document.getElementById('user-department'), departments, 'id', (d) => departmentWithUCS(d.name), false);
+        fillDepartmentSelect(document.getElementById('user-department'), departments, false);
         fillMessengerSelectors();
         return;
       }
       const data = await api('/api/v1/departments');
       departments = data.items || [];
       fillSelect(document.getElementById('project-department'), departments, 'id', 'name', true);
-      fillSelect(document.getElementById('user-department'), departments, 'id', (d) => departmentWithUCS(d.name), false);
+      fillDepartmentSelect(document.getElementById('user-department'), departments, false);
       fillMessengerSelectors();
     }
 
