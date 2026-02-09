@@ -870,7 +870,7 @@
       }
     }
 
-    function renderChatMessages(rootID, items) {
+    function renderChatMessages(rootID, items, scopeType, scopeID) {
       const root = document.getElementById(rootID);
       if (!root) return;
       root.innerHTML = '';
@@ -881,13 +881,23 @@
       items.forEach((m) => {
         const el = document.createElement('article');
         el.className = 'chat-msg';
+        const canDelete = Number(m.author_id || 0) === Number(session.id || 0) || isSuper;
+        const deleteHTML = canDelete
+          ? `<button class="btn btn-sm btn-secondary chat-msg-delete-btn"
+               data-message-id="${m.id}"
+               data-scope-type="${escapeAttr(scopeType || m.scope_type || '')}"
+               data-scope-id="${escapeAttr(String(scopeID || m.scope_id || ''))}">Удалить</button>`
+          : '';
         const fileHTML = m.file_url
           ? `<div class="chat-msg-file"><a href="${escapeAttr(m.file_url)}" target="_blank" rel="noopener">📎 ${escapeHTML(m.file_name || 'Вложение')}</a></div>`
           : '';
         el.innerHTML = `
           <div class="chat-msg-head">
             <strong>${escapeHTML(m.author_name || 'Пользователь')}</strong>
-            <span>${escapeHTML(m.created_at || '')}</span>
+            <div class="chat-msg-head-actions">
+              <span>${escapeHTML(m.created_at || '')}</span>
+              ${deleteHTML}
+            </div>
           </div>
           <div class="chat-msg-body">${escapeHTML(m.body || '')}</div>
           ${fileHTML}
@@ -916,12 +926,12 @@
       if (!depSelect) return;
       const depID = Number(depSelect.value || session.department_id || 0);
       if (!depID) {
-        renderChatMessages('department-chat-log', []);
+        renderChatMessages('department-chat-log', [], 'department', 0);
         return;
       }
       const qs = `?department_id=${depID}`;
       const data = await api(`/api/v1/messages/department${qs}`);
-      renderChatMessages('department-chat-log', data.items || []);
+      renderChatMessages('department-chat-log', data.items || [], 'department', depID);
     }
 
     const taskChatState = {
@@ -958,11 +968,26 @@
     async function loadTaskChatByTaskID(taskID) {
       const id = Number(taskID || taskChatState.taskID || 0);
       if (!id) {
-        renderChatMessages('task-chat-full-log', []);
+        renderChatMessages('task-chat-full-log', [], 'task', 0);
         return;
       }
       const data = await api(`/api/v1/messages/task?task_id=${id}`);
-      renderChatMessages('task-chat-full-log', data.items || []);
+      renderChatMessages('task-chat-full-log', data.items || [], 'task', id);
+    }
+
+    async function deleteChatMessage(messageID, scopeType, scopeID) {
+      const id = Number(messageID || 0);
+      if (!id) return;
+      if (!confirm('Удалить сообщение?')) return;
+      if (String(scopeType) === 'task') {
+        const taskID = Number(scopeID || taskChatState.taskID || 0);
+        await api(`/api/v1/messages/task?task_id=${taskID}&message_id=${id}`, { method: 'DELETE' });
+        await loadTaskChatByTaskID(taskID);
+        return;
+      }
+      const depID = Number(scopeID || document.getElementById('messenger-department-select')?.value || session.department_id || 0);
+      await api(`/api/v1/messages/department?department_id=${depID}&message_id=${id}`, { method: 'DELETE' });
+      await loadDepartmentChat();
     }
 
     async function openTaskChat(taskID, fromView) {
@@ -1604,6 +1629,14 @@
       const openTaskChatBtn = e.target.closest('.open-task-chat-btn');
       if (openTaskChatBtn) {
         try { await openTaskChat(openTaskChatBtn.dataset.id, 'tasks'); } catch (err) { alert(err.message); }
+      }
+      const deleteChatMsgBtn = e.target.closest('.chat-msg-delete-btn');
+      if (deleteChatMsgBtn) {
+        try {
+          await deleteChatMessage(deleteChatMsgBtn.dataset.messageId, deleteChatMsgBtn.dataset.scopeType, deleteChatMsgBtn.dataset.scopeId);
+        } catch (err) {
+          alert(err.message);
+        }
       }
 
       const editUserBtn = e.target.closest('.edit-user-btn');

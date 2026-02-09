@@ -1425,6 +1425,36 @@ WHERE id = ?
 	return scopeType, scopeID, filePath, fileName, fileSize, nil
 }
 
+func (r *Repository) ChatMessageMeta(ctx context.Context, messageID int64) (scopeType string, scopeID, authorID int64, filePath string, err error) {
+	err = r.db.QueryRowContext(ctx, `
+SELECT scope_type, scope_id, author_user_id, file_path
+FROM chat_messages
+WHERE id = ?
+`, messageID).Scan(&scopeType, &scopeID, &authorID, &filePath)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", 0, 0, "", errors.New("сообщение не найдено")
+		}
+		return "", 0, 0, "", fmt.Errorf("load chat message meta: %w", err)
+	}
+	return scopeType, scopeID, authorID, filePath, nil
+}
+
+func (r *Repository) DeleteChatMessage(ctx context.Context, messageID int64) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM chat_messages WHERE id = ?`, messageID)
+	if err != nil {
+		return fmt.Errorf("delete chat message: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected for chat message delete: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("сообщение не найдено")
+	}
+	return nil
+}
+
 func (r *Repository) taskAssignees(ctx context.Context, taskID int64) ([]models.User, error) {
 	return r.linkedUsers(ctx, `
 SELECT u.id, u.login, u.full_name, u.position, u.role

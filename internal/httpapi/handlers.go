@@ -1133,6 +1133,33 @@ func (s *Server) departmentMessages(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]string{"message": "сообщение отправлено"})
+	case http.MethodDelete:
+		messageID, err := readRequiredInt64Query(r, "message_id")
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		scopeType, scopeID, authorID, filePath, err := s.repo.ChatMessageMeta(r.Context(), messageID)
+		if err != nil {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if !strings.EqualFold(scopeType, "department") || scopeID != targetDepartmentID {
+			writeError(w, http.StatusBadRequest, "сообщение не принадлежит выбранному чату отдела")
+			return
+		}
+		if !isSuperRole(actor.Role) && authorID != actor.ID {
+			writeError(w, http.StatusForbidden, "можно удалять только свои сообщения")
+			return
+		}
+		if err := s.repo.DeleteChatMessage(r.Context(), messageID); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if strings.TrimSpace(filePath) != "" {
+			_ = os.Remove(filePath)
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "сообщение удалено"})
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
@@ -1250,11 +1277,38 @@ func (s *Server) taskMessages(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusForbidden, "чат задачи доступен только кураторам и исполнителям этой задачи")
 				return
 			}
-			if err := s.repo.CreateTaskMessage(r.Context(), targetTaskID, actor.ID, body, fileName, filePath, fileSize); err != nil {
+		if err := s.repo.CreateTaskMessage(r.Context(), targetTaskID, actor.ID, body, fileName, filePath, fileSize); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]string{"message": "сообщение отправлено"})
+	case http.MethodDelete:
+		messageID, err := readRequiredInt64Query(r, "message_id")
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		scopeType, scopeID, authorID, filePath, err := s.repo.ChatMessageMeta(r.Context(), messageID)
+		if err != nil {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if !strings.EqualFold(scopeType, "task") || scopeID != *taskID {
+			writeError(w, http.StatusBadRequest, "сообщение не принадлежит выбранному чату задачи")
+			return
+		}
+		if !isSuperRole(actor.Role) && authorID != actor.ID {
+			writeError(w, http.StatusForbidden, "можно удалять только свои сообщения")
+			return
+		}
+		if err := s.repo.DeleteChatMessage(r.Context(), messageID); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if strings.TrimSpace(filePath) != "" {
+			_ = os.Remove(filePath)
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "сообщение удалено"})
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
@@ -1395,6 +1449,17 @@ func readOptionalInt64Query(r *http.Request, key string) (*int64, error) {
 		return nil, fmt.Errorf("некорректный параметр %s", key)
 	}
 	return &v, nil
+}
+
+func readRequiredInt64Query(r *http.Request, key string) (int64, error) {
+	v, err := readOptionalInt64Query(r, key)
+	if err != nil {
+		return 0, err
+	}
+	if v == nil {
+		return 0, fmt.Errorf("некорректный параметр %s", key)
+	}
+	return *v, nil
 }
 
 func uniqueInt64(values []int64) []int64 {
