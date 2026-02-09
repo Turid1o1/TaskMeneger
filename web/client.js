@@ -668,6 +668,7 @@
       document.getElementById('user-department').value = String(session.department_id || 1);
       refreshUserPositionOptions('');
       document.getElementById('user-role').value = 'Member';
+      document.getElementById('delete-user-editor-btn')?.classList.add('hidden');
       applyUserEditorPermissions();
       document.getElementById('user-editor-message').textContent = '';
     }
@@ -1029,7 +1030,7 @@
 
     async function loadUsers() {
       const data = await api('/api/v1/users');
-      users = data.items || [];
+      users = (data.items || []).slice().sort((a, b) => Number(a.id) - Number(b.id));
       refreshStaffSelectors();
       refreshUserPositionOptions(document.getElementById('user-position')?.value || '');
       applyUserEditorPermissions();
@@ -1037,13 +1038,14 @@
       const tbody = document.querySelector('#users-table tbody');
       if (!tbody) return;
       tbody.innerHTML = '';
-      users.forEach(u => {
+      users.forEach((u, idx) => {
         const tr = document.createElement('tr');
+        const displayID = idx + 1;
         const actions = canManageUsersOnly
           ? `<button class="btn btn-sm btn-secondary edit-user-btn" data-id="${u.id}">Редактировать</button>
              <button class="btn btn-sm btn-secondary delete-user-btn" data-id="${u.id}">Удалить</button>`
           : '—';
-        tr.innerHTML = `<td>${u.id}</td><td>${u.login}</td><td>${u.full_name}</td><td>${u.position}</td><td>${u.department_name || '—'}</td><td>${roleLabel(u.role)}</td><td>Активен</td><td>${actions}</td>`;
+        tr.innerHTML = `<td title="ID ${u.id}">${displayID}</td><td>${u.login}</td><td>${u.full_name}</td><td>${u.position}</td><td>${u.department_name || '—'}</td><td>${roleLabel(u.role)}</td><td>Активен</td><td>${actions}</td>`;
         tbody.appendChild(tr);
       });
     }
@@ -1207,6 +1209,7 @@
       document.getElementById('user-department').value = String(item.department_id || 1);
       refreshUserPositionOptions(item.position);
       document.getElementById('user-role').value = item.role;
+      document.getElementById('delete-user-editor-btn')?.classList.remove('hidden');
       applyUserEditorPermissions();
       setView('users');
     }
@@ -1494,6 +1497,14 @@
       await loadUsers();
       await loadProjects();
       await loadTasks();
+      if (Number(editingUserID) === Number(id)) {
+        resetUserEditor();
+      }
+    }
+
+    async function deleteUserFromEditor() {
+      if (!editingUserID) return;
+      await deleteUser(editingUserID);
     }
 
     document.addEventListener('click', async (e) => {
@@ -1632,6 +1643,9 @@
     });
     document.getElementById('save-user-btn')?.addEventListener('click', saveUser);
     document.getElementById('reset-user-btn')?.addEventListener('click', resetUserEditor);
+    document.getElementById('delete-user-editor-btn')?.addEventListener('click', async () => {
+      try { await deleteUserFromEditor(); } catch (e) { alert(e.message); }
+    });
     document.getElementById('save-settings-general-btn')?.addEventListener('click', saveGeneralSettings);
     document.getElementById('save-settings-security-btn')?.addEventListener('click', saveSecuritySettings);
     document.getElementById('save-settings-notify-btn')?.addEventListener('click', saveNotifySettings);
