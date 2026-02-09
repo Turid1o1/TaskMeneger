@@ -2,7 +2,9 @@
   const SESSION_KEY = 'taskflow_session';
   const SETTINGS_KEY = 'taskflow_settings';
   const UCS_VIRTUAL_ID = 'ucs';
-  const UCS_VIRTUAL_NAME = 'Управление цифровых сервисов';
+  const UCS_VIRTUAL_FULL_ID = 'ucs_full';
+  const UCS_VIRTUAL_SHORT_NAME = 'УЦС';
+  const UCS_VIRTUAL_NAME = 'Управление Цифровых Сервисов';
   const UCS_TOP_POSITIONS = [
     'Начальник УЦС',
     'Заместитель начальника УЦС'
@@ -216,14 +218,14 @@
   function normalizeDepartmentID(rawValue, fallbackID) {
     const raw = String(rawValue || '').trim();
     if (!raw) return 0;
-    if (raw === UCS_VIRTUAL_ID) return Number(fallbackID || 0);
+    if (raw === UCS_VIRTUAL_ID || raw === UCS_VIRTUAL_FULL_ID) return Number(fallbackID || 0);
     const num = Number(raw);
     return Number.isFinite(num) ? num : 0;
   }
 
   function positionOptionsByDepartment(departmentID) {
     const key = String(departmentID || '').trim().toLowerCase();
-    if (key === UCS_VIRTUAL_ID) return UCS_TOP_POSITIONS.slice();
+    if (key === UCS_VIRTUAL_ID || key === UCS_VIRTUAL_FULL_ID) return UCS_TOP_POSITIONS.slice();
     const items = POSITIONS_BY_DEPARTMENT[Number(departmentID)] || [];
     return items.slice();
   }
@@ -371,12 +373,16 @@
       empty.textContent = '';
       select.appendChild(empty);
     }
-    const ucsOption = document.createElement('option');
-    ucsOption.value = UCS_VIRTUAL_ID;
-    ucsOption.textContent = UCS_VIRTUAL_NAME;
-    select.appendChild(ucsOption);
+    const ucsShortOption = document.createElement('option');
+    ucsShortOption.value = UCS_VIRTUAL_ID;
+    ucsShortOption.textContent = UCS_VIRTUAL_SHORT_NAME;
+    select.appendChild(ucsShortOption);
+    const ucsFullOption = document.createElement('option');
+    ucsFullOption.value = UCS_VIRTUAL_FULL_ID;
+    ucsFullOption.textContent = UCS_VIRTUAL_NAME;
+    select.appendChild(ucsFullOption);
     const group = document.createElement('optgroup');
-    group.label = 'Подразделения';
+    group.label = 'Отделы и подразделения';
     departments.forEach((item) => {
       const option = document.createElement('option');
       option.value = item.id;
