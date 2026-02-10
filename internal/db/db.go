@@ -163,6 +163,12 @@ CREATE INDEX IF NOT EXISTS idx_chat_scope_created ON chat_messages(scope_type, s
 	if err := addColumnIfMissing(db, "chat_messages", "file_size", "INTEGER NOT NULL DEFAULT 0"); err != nil {
 		return fmt.Errorf("add chat_messages.file_size: %w", err)
 	}
+	if err := addColumnIfMissing(db, "tasks", "route_stage", "INTEGER NOT NULL DEFAULT 4"); err != nil {
+		return fmt.Errorf("add tasks.route_stage: %w", err)
+	}
+	if err := addColumnIfMissing(db, "tasks", "route_owner_user_id", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return fmt.Errorf("add tasks.route_owner_user_id: %w", err)
+	}
 	if _, err := db.Exec(`UPDATE projects SET status = 'Активен' WHERE status IS NULL OR status = ''`); err != nil {
 		return fmt.Errorf("normalize projects.status: %w", err)
 	}
@@ -193,6 +199,18 @@ WHERE id IN (1,2,3,4);
 	}
 	if _, err := db.Exec(`UPDATE projects SET department_id = 1 WHERE department_id IS NULL OR department_id = 0`); err != nil {
 		return fmt.Errorf("normalize projects.department_id: %w", err)
+	}
+	if _, err := db.Exec(`UPDATE tasks SET route_stage = 4 WHERE route_stage IS NULL OR route_stage <= 0`); err != nil {
+		return fmt.Errorf("normalize tasks.route_stage: %w", err)
+	}
+	if _, err := db.Exec(`
+UPDATE tasks
+SET route_owner_user_id = (
+  SELECT COALESCE(MIN(ta.user_id), 0) FROM task_assignees ta WHERE ta.task_id = tasks.id
+)
+WHERE route_owner_user_id IS NULL OR route_owner_user_id = 0
+`); err != nil {
+		return fmt.Errorf("normalize tasks.route_owner_user_id: %w", err)
 	}
 	return nil
 }

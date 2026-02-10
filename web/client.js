@@ -361,6 +361,14 @@
     return 'Сотрудник отдела';
   }
 
+  function routeStageLabel(stage) {
+    const s = Number(stage || 0);
+    if (s <= 1) return 'У Начальника УЦС';
+    if (s === 2) return 'У Заместителя начальника УЦС';
+    if (s === 3) return 'У Начальника отдела';
+    return 'У сотрудника отдела';
+  }
+
   function fillDepartmentSelect(select, items, withEmpty) {
     if (!select) return;
     select.innerHTML = '';
@@ -1138,19 +1146,55 @@
         if (canOpenTaskChat) {
           baseActions.push(`<button class="btn btn-sm btn-secondary open-task-chat-btn" data-id="${t.id}">Чат</button>`);
         }
+        const stage = Number(t.route_stage || 4);
+        const routeOwnerID = Number(t.route_owner_user_id || 0);
+        const canRouteTask = (isSuper && stage <= 3) ||
+          (String(session.role || '') === 'Deputy Admin' && stage === 2 && routeOwnerID === Number(session.id)) ||
+          (String(session.role || '') === 'Project Manager' && stage >= 3 && routeOwnerID === Number(session.id));
+        if (canRouteTask) {
+          baseActions.push(`<button class="btn btn-sm btn-secondary route-task-btn" data-id="${t.id}">Передать</button>`);
+        }
         baseActions.push(`<button class="btn btn-sm btn-secondary interim-task-report-btn" data-id="${t.id}">Промеж. отчет</button>`);
         baseActions.push(`<button class="btn btn-sm btn-success close-task-btn" data-id="${t.id}">Закрыть</button>`);
         const normalizedStatus = String(t.status || '').toLowerCase();
         const statusCell = normalizedStatus.includes('done') || normalizedStatus.includes('заверш')
           ? `<span class="status-badge status-done">Выполнено</span>`
           : statusLabel(t.status);
-        tr.innerHTML = `<td title="ID ${t.id}">${displayID}</td><td title="${escapeHTML(t.title)}">${t.title}</td><td>${t.department_name || '—'}</td><td>${typeLabel(t.type)}</td><td>${statusCell}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_name || '—'}</td><td>${baseActions.join(' ')}</td>`;
+        const routeInfo = `<div class="sub">СЭД: ${routeStageLabel(t.route_stage)}${t.route_owner_name ? ` (${escapeHTML(t.route_owner_name)})` : ''}</div>`;
+        tr.innerHTML = `<td title="ID ${t.id}">${displayID}</td><td title="${escapeHTML(t.title)}">${t.title}${routeInfo}</td><td>${t.department_name || '—'}</td><td>${typeLabel(t.type)}</td><td>${statusCell}</td><td><span class="prio-badge ${meta.cls}">${meta.label}</span></td><td>${assigneesText(t)}</td><td>${usersText(t.curators) || t.curator_name || '—'}</td><td>${t.project_name || '—'}</td><td>${baseActions.join(' ')}</td>`;
         tbody.appendChild(tr);
       });
 
       renderPager('tasks', tasks.length);
       renderDashboard();
       renderCalendar();
+    }
+
+    async function routeTask(taskID) {
+      const id = Number(taskID || 0);
+      if (!id) return;
+      const task = tasks.find((t) => Number(t.id) === id);
+      if (!task) throw new Error('Задача не найдена');
+      const stage = Number(task.route_stage || 4);
+      let candidates = [];
+      if (isSuper && stage <= 1) {
+        candidates = users.filter((u) => String(u.role || '').toLowerCase() === 'deputy admin');
+      } else if ((isSuper || String(session.role || '') === 'Deputy Admin') && stage === 2) {
+        candidates = users.filter((u) => String(u.role || '').toLowerCase() === 'project manager' && Number(u.department_id) === Number(task.department_id));
+      } else {
+        candidates = users.filter((u) => String(u.role || '').toLowerCase() === 'member' && Number(u.department_id) === Number(task.department_id));
+      }
+      if (!candidates.length) throw new Error('Нет доступных получателей для этапа СЭД');
+      const list = candidates.map((u, i) => `${i + 1}. ${u.full_name} (${u.position})`).join('\n');
+      const raw = prompt(`Передача задачи по СЭД:\n${list}\n\nВведите номер сотрудника:`);
+      if (!raw) return;
+      const idx = Number(raw) - 1;
+      if (!Number.isInteger(idx) || idx < 0 || idx >= candidates.length) throw new Error('Неверный номер');
+      await api(`/api/v1/tasks/${id}/route`, {
+        method: 'PATCH',
+        body: JSON.stringify({ to_user_id: Number(candidates[idx].id) })
+      });
+      await loadTasks();
     }
 
     async function loadReports() {
@@ -1625,6 +1669,11 @@
 
       const editTaskBtn = e.target.closest('.edit-task-btn');
       if (editTaskBtn) editTask(editTaskBtn.dataset.id);
+
+      const routeTaskBtn = e.target.closest('.route-task-btn');
+      if (routeTaskBtn) {
+        try { await routeTask(routeTaskBtn.dataset.id); } catch (err) { alert(err.message); }
+      }
 
       const openTaskChatBtn = e.target.closest('.open-task-chat-btn');
       if (openTaskChatBtn) {

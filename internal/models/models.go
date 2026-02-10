@@ -45,6 +45,9 @@ type Task struct {
 	Curators      []User  `json:"curators"`
 	DueDate       *string `json:"due_date,omitempty"`
 	Assignees     []User  `json:"assignees"`
+	RouteStage    int64   `json:"route_stage"`
+	RouteOwnerID  int64   `json:"route_owner_user_id"`
+	RouteOwnerName string `json:"route_owner_name"`
 }
 
 type RegisterInput struct {
@@ -72,6 +75,8 @@ type CreateTaskInput struct {
 	CuratorIDs   []int64 `json:"curator_ids"`
 	AssigneeIDs  []int64 `json:"assignee_ids"`
 	DueDate      *string `json:"due_date"`
+	RouteStage   int64   `json:"-"`
+	RouteOwnerID int64   `json:"-"`
 }
 
 type CreateProjectInput struct {

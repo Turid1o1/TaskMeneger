@@ -647,6 +647,10 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 		if !s.requireActorRole(w, r, "Owner", "Admin", "Deputy Admin") {
 			return
 		}
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
 		var input models.CreateTaskInput
 		if err := decodeJSON(r, &input); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -671,6 +675,18 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "кураторы и исполнители должны быть из отдела проекта")
 			return
 		}
+		if strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") {
+			deputy, err := s.repo.FirstUserByRole(r.Context(), "Deputy Admin")
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "не найден Заместитель начальника УЦС для маршрута СЭД")
+				return
+			}
+			input.RouteStage = 2
+			input.RouteOwnerID = deputy.ID
+		} else if strings.EqualFold(actor.Role, "Deputy Admin") {
+			input.RouteStage = 3
+			input.RouteOwnerID = actor.ID
+		}
 		if err := s.repo.CreateTask(r.Context(), input); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -682,6 +698,95 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
+	if taskID, ok := parseTaskRoutePath(r.URL.Path); ok {
+		if r.Method != http.MethodPatch {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		actor, ok := s.actorFromRequest(w, r)
+		if !ok {
+			return
+		}
+		var in struct {
+			ToUserID int64 `json:"to_user_id"`
+		}
+		if err := decodeJSON(r, &in); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if in.ToUserID <= 0 {
+			writeError(w, http.StatusBadRequest, "укажите получателя")
+			return
+		}
+		stage, currentOwnerID, departmentID, err := s.repo.TaskRouteState(r.Context(), taskID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if !isSuperRole(actor.Role) && currentOwnerID > 0 && actor.ID != currentOwnerID {
+			writeError(w, http.StatusForbidden, "передавать задачу может только текущий ответственный")
+			return
+		}
+		target, err := s.repo.UserByID(r.Context(), in.ToUserID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		nextStage := stage
+		switch {
+		case stage <= 2:
+			if !strings.EqualFold(actor.Role, "Owner") && !strings.EqualFold(actor.Role, "Admin") && !strings.EqualFold(actor.Role, "Deputy Admin") {
+				writeError(w, http.StatusForbidden, "этап УЦС: передача доступна только руководству УЦС")
+				return
+			}
+			if !strings.EqualFold(target.Role, "Deputy Admin") && stage <= 1 {
+				writeError(w, http.StatusBadRequest, "на первом этапе задача передается Заместителю начальника УЦС")
+				return
+			}
+			if stage <= 1 {
+				nextStage = 2
+			} else {
+				if !strings.EqualFold(target.Role, "Project Manager") || target.DepartmentID != departmentID {
+					writeError(w, http.StatusBadRequest, "на втором этапе задача передается Начальнику отдела выбранного подразделения")
+					return
+				}
+				nextStage = 3
+			}
+		case stage == 3:
+			if !strings.EqualFold(actor.Role, "Project Manager") && !isSuperRole(actor.Role) {
+				writeError(w, http.StatusForbidden, "на этапе отдела передавать задачу может только Начальник отдела")
+				return
+			}
+			if !strings.EqualFold(target.Role, "Member") || target.DepartmentID != departmentID {
+				writeError(w, http.StatusBadRequest, "задача должна быть передана сотруднику выбранного отдела")
+				return
+			}
+			nextStage = 4
+		default:
+			if !strings.EqualFold(actor.Role, "Project Manager") && !isSuperRole(actor.Role) {
+				writeError(w, http.StatusForbidden, "дальнейшее распределение доступно только начальнику отдела")
+				return
+			}
+			if !strings.EqualFold(target.Role, "Member") || target.DepartmentID != departmentID {
+				writeError(w, http.StatusBadRequest, "можно передавать только сотруднику выбранного отдела")
+				return
+			}
+			nextStage = 4
+		}
+
+		if err := s.repo.UpdateTaskRoute(r.Context(), taskID, target.ID, nextStage); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"message":         "задача передана по маршруту СЭД",
+			"route_stage":     nextStage,
+			"route_owner_id":  target.ID,
+			"route_owner_name": target.FullName,
+		})
+		return
+	}
+
 	if taskID, ok := parseTaskClosePath(r.URL.Path); ok {
 		if r.Method != http.MethodPatch {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")

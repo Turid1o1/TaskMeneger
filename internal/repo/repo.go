@@ -665,10 +665,12 @@ func (r *Repository) TasksByDepartment(ctx context.Context, departmentID int64) 
 func (r *Repository) TasksByUser(ctx context.Context, userID int64) ([]models.Task, error) {
 	query := `
 SELECT t.id, t.key, t.title, t.description, t.type, t.status, t.priority,
-       t.project_id, p.key, p.name, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), t.curator_user_id, t.due_date
+       t.project_id, p.key, p.name, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), t.curator_user_id, t.due_date,
+       COALESCE(t.route_stage, 4), COALESCE(t.route_owner_user_id, 0), COALESCE(ru.full_name, '')
 FROM tasks t
 JOIN projects p ON p.id = t.project_id
 LEFT JOIN departments d ON d.id = p.department_id
+LEFT JOIN users ru ON ru.id = t.route_owner_user_id
 WHERE EXISTS (
   SELECT 1
   FROM (
@@ -678,9 +680,10 @@ WHERE EXISTS (
   ) x
   WHERE x.user_id = ?
 )
+OR COALESCE(t.route_owner_user_id, 0) = ?
 ORDER BY t.id
 `
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("query tasks by user: %w", err)
 	}
@@ -690,7 +693,7 @@ ORDER BY t.id
 	for rows.Next() {
 		var t models.Task
 		var due sql.NullString
-		if err := rows.Scan(&t.ID, &t.Key, &t.Title, &t.Description, &t.Type, &t.Status, &t.Priority, &t.ProjectID, &t.ProjectKey, &t.ProjectName, &t.DepartmentID, &t.DepartmentName, &t.CuratorUserID, &due); err != nil {
+		if err := rows.Scan(&t.ID, &t.Key, &t.Title, &t.Description, &t.Type, &t.Status, &t.Priority, &t.ProjectID, &t.ProjectKey, &t.ProjectName, &t.DepartmentID, &t.DepartmentName, &t.CuratorUserID, &due, &t.RouteStage, &t.RouteOwnerID, &t.RouteOwnerName); err != nil {
 			return nil, fmt.Errorf("scan task by user: %w", err)
 		}
 		if due.Valid {
@@ -726,10 +729,12 @@ ORDER BY t.id
 func (r *Repository) tasksQuery(ctx context.Context, projectID *int64, departmentID *int64) ([]models.Task, error) {
 	query := `
 SELECT t.id, t.key, t.title, t.description, t.type, t.status, t.priority,
-       t.project_id, p.key, p.name, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), t.curator_user_id, t.due_date
+       t.project_id, p.key, p.name, COALESCE(p.department_id, 1), COALESCE(d.name, 'Отдел не указан'), t.curator_user_id, t.due_date,
+       COALESCE(t.route_stage, 4), COALESCE(t.route_owner_user_id, 0), COALESCE(ru.full_name, '')
 FROM tasks t
 JOIN projects p ON p.id = t.project_id
 LEFT JOIN departments d ON d.id = p.department_id
+LEFT JOIN users ru ON ru.id = t.route_owner_user_id
 `
 	args := make([]any, 0)
 	conds := make([]string, 0, 2)
@@ -756,7 +761,7 @@ LEFT JOIN departments d ON d.id = p.department_id
 	for rows.Next() {
 		var t models.Task
 		var due sql.NullString
-		if err := rows.Scan(&t.ID, &t.Key, &t.Title, &t.Description, &t.Type, &t.Status, &t.Priority, &t.ProjectID, &t.ProjectKey, &t.ProjectName, &t.DepartmentID, &t.DepartmentName, &t.CuratorUserID, &due); err != nil {
+		if err := rows.Scan(&t.ID, &t.Key, &t.Title, &t.Description, &t.Type, &t.Status, &t.Priority, &t.ProjectID, &t.ProjectKey, &t.ProjectName, &t.DepartmentID, &t.DepartmentName, &t.CuratorUserID, &due, &t.RouteStage, &t.RouteOwnerID, &t.RouteOwnerName); err != nil {
 			return nil, fmt.Errorf("scan task: %w", err)
 		}
 		if due.Valid {
@@ -807,10 +812,15 @@ func (r *Repository) CreateTask(ctx context.Context, in models.CreateTaskInput) 
 	}
 
 	primaryCuratorID := in.CuratorIDs[0]
+	routeStage := in.RouteStage
+	if routeStage <= 0 {
+		routeStage = 4
+	}
+	routeOwnerID := in.RouteOwnerID
 	if _, err := tx.ExecContext(ctx, `
-INSERT INTO tasks (id, key, title, description, type, status, priority, project_id, curator_user_id, due_date)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`, taskID, key, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), strings.TrimSpace(in.Type), strings.TrimSpace(in.Status), strings.TrimSpace(in.Priority), in.ProjectID, primaryCuratorID, in.DueDate); err != nil {
+INSERT INTO tasks (id, key, title, description, type, status, priority, project_id, curator_user_id, due_date, route_stage, route_owner_user_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, taskID, key, strings.TrimSpace(in.Title), strings.TrimSpace(in.Description), strings.TrimSpace(in.Type), strings.TrimSpace(in.Status), strings.TrimSpace(in.Priority), in.ProjectID, primaryCuratorID, in.DueDate, routeStage, routeOwnerID); err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return errors.New("ключ задачи уже существует")
 		}
@@ -831,6 +841,61 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) FirstUserByRole(ctx context.Context, role string) (models.User, error) {
+	var u models.User
+	err := r.db.QueryRowContext(ctx, `
+SELECT u.id, u.login, u.full_name, u.position, u.role,
+       COALESCE(u.department_id, 1), COALESCE(d.name, 'Отдел не указан'), COALESCE(u.avatar_path, '')
+FROM users u
+LEFT JOIN departments d ON d.id = u.department_id
+WHERE lower(u.role) = lower(?)
+ORDER BY u.id
+LIMIT 1
+`, strings.TrimSpace(role)).Scan(&u.ID, &u.Login, &u.FullName, &u.Position, &u.Role, &u.DepartmentID, &u.DepartmentName, &u.AvatarPath)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, errors.New("пользователь с нужной ролью не найден")
+		}
+		return models.User{}, fmt.Errorf("query first user by role: %w", err)
+	}
+	return u, nil
+}
+
+func (r *Repository) TaskRouteState(ctx context.Context, taskID int64) (stage int64, ownerID, departmentID int64, err error) {
+	err = r.db.QueryRowContext(ctx, `
+SELECT COALESCE(t.route_stage, 4), COALESCE(t.route_owner_user_id, 0), COALESCE(p.department_id, 1)
+FROM tasks t
+JOIN projects p ON p.id = t.project_id
+WHERE t.id = ?
+`, taskID).Scan(&stage, &ownerID, &departmentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, 0, 0, errors.New("задача не найдена")
+		}
+		return 0, 0, 0, fmt.Errorf("task route state: %w", err)
+	}
+	return stage, ownerID, departmentID, nil
+}
+
+func (r *Repository) UpdateTaskRoute(ctx context.Context, taskID, ownerID, stage int64) error {
+	res, err := r.db.ExecContext(ctx, `
+UPDATE tasks
+SET route_owner_user_id = ?, route_stage = ?
+WHERE id = ?
+`, ownerID, stage, taskID)
+	if err != nil {
+		return fmt.Errorf("update task route: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("task route rows affected: %w", err)
+	}
+	if affected == 0 {
+		return errors.New("задача не найдена")
 	}
 	return nil
 }
