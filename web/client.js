@@ -352,13 +352,25 @@
   }
 
   function roleLabel(value) {
-    const v = String(value || '').toLowerCase();
+    const v = normalizeRoleValue(value).toLowerCase();
     if (v === 'owner') return 'Владелец';
     if (v === 'admin') return 'Начальник УЦС';
     if (v === 'deputy admin') return 'Заместитель начальника УЦС';
     if (v === 'project manager') return 'Начальник отдела';
     if (v === 'guest') return 'Высшее руководство';
     return 'Сотрудник отдела';
+  }
+
+  function normalizeRoleValue(value) {
+    const raw = String(value || '').trim();
+    const lower = raw.toLowerCase();
+    if (lower === 'владелец') return 'Owner';
+    if (lower === 'начальник уцс') return 'Admin';
+    if (lower === 'заместитель начальника уцс') return 'Deputy Admin';
+    if (lower === 'начальник отдела') return 'Project Manager';
+    if (lower === 'сотрудник отдела') return 'Member';
+    if (lower === 'высшее руководство') return 'Guest';
+    return raw;
   }
 
   function routeStageLabel(stage) {
@@ -464,6 +476,7 @@
       return;
     }
 
+    session.role = normalizeRoleValue(session.role);
     renderSessionUser(session);
     const canManageUsersOnly = ['Owner', 'Admin', 'Deputy Admin', 'Project Manager'].includes(session.role);
     const canManageWorkItems = ['Owner', 'Admin', 'Deputy Admin'].includes(session.role);
@@ -889,6 +902,9 @@
       items.forEach((m) => {
         const el = document.createElement('article');
         el.className = 'chat-msg';
+        if (Number(m.author_id || 0) === Number(session.id || 0)) {
+          el.classList.add('is-own');
+        }
         const canDelete = Number(m.author_id || 0) === Number(session.id || 0) || isSuper;
         const deleteHTML = canDelete
           ? `<button class="btn btn-sm btn-secondary chat-msg-delete-btn"
@@ -970,6 +986,8 @@
       }
       if (input) input.value = '';
       if (fileInput) fileInput.value = '';
+      const fileLabel = document.getElementById('department-chat-file-label');
+      if (fileLabel) fileLabel.textContent = 'Файл';
       await loadDepartmentChat();
     }
 
@@ -1037,6 +1055,8 @@
       }
       if (input) input.value = '';
       if (fileInput) fileInput.value = '';
+      const fileLabel = document.getElementById('task-chat-full-file-label');
+      if (fileLabel) fileLabel.textContent = 'Файл';
       await loadTaskChatByTaskID(taskID);
     }
 
@@ -1148,11 +1168,12 @@
         }
         const stage = Number(t.route_stage || 4);
         const routeOwnerID = Number(t.route_owner_user_id || 0);
+        const normalizedRole = normalizeRoleValue(session.role || '');
         const canRouteTask = (isSuper && stage <= 3) ||
-          (String(session.role || '') === 'Deputy Admin' && stage === 2 && routeOwnerID === Number(session.id)) ||
-          (String(session.role || '') === 'Project Manager' && stage >= 3 && routeOwnerID === Number(session.id));
+          (normalizedRole === 'Deputy Admin' && stage === 2 && (routeOwnerID === 0 || routeOwnerID === Number(session.id))) ||
+          (normalizedRole === 'Project Manager' && stage >= 3 && (routeOwnerID === 0 || routeOwnerID === Number(session.id)));
         if (canRouteTask) {
-          baseActions.push(`<button class="btn btn-sm btn-secondary route-task-btn" data-id="${t.id}">Передать</button>`);
+          baseActions.push(`<button class="btn btn-sm btn-secondary route-task-btn" data-id="${t.id}">Расписать</button>`);
         }
         baseActions.push(`<button class="btn btn-sm btn-secondary interim-task-report-btn" data-id="${t.id}">Промеж. отчет</button>`);
         baseActions.push(`<button class="btn btn-sm btn-success close-task-btn" data-id="${t.id}">Закрыть</button>`);
@@ -1177,12 +1198,13 @@
       if (!task) throw new Error('Задача не найдена');
       const stage = Number(task.route_stage || 4);
       let candidates = [];
+      const normalizedRole = normalizeRoleValue(session.role || '');
       if (isSuper && stage <= 1) {
-        candidates = users.filter((u) => String(u.role || '').toLowerCase() === 'deputy admin');
-      } else if ((isSuper || String(session.role || '') === 'Deputy Admin') && stage === 2) {
-        candidates = users.filter((u) => String(u.role || '').toLowerCase() === 'project manager' && Number(u.department_id) === Number(task.department_id));
+        candidates = users.filter((u) => normalizeRoleValue(u.role || '').toLowerCase() === 'deputy admin');
+      } else if ((isSuper || normalizedRole === 'Deputy Admin') && stage === 2) {
+        candidates = users.filter((u) => normalizeRoleValue(u.role || '').toLowerCase() === 'project manager' && Number(u.department_id) === Number(task.department_id));
       } else {
-        candidates = users.filter((u) => String(u.role || '').toLowerCase() === 'member' && Number(u.department_id) === Number(task.department_id));
+        candidates = users.filter((u) => normalizeRoleValue(u.role || '').toLowerCase() === 'member' && Number(u.department_id) === Number(task.department_id));
       }
       if (!candidates.length) throw new Error('Нет доступных получателей для этапа СЭД');
       const list = candidates.map((u, i) => `${i + 1}. ${u.full_name} (${u.position})`).join('\n');
@@ -1804,6 +1826,10 @@
     document.getElementById('send-department-message-btn')?.addEventListener('click', async () => {
       await sendDepartmentMessage();
     });
+    document.getElementById('department-chat-file')?.addEventListener('change', () => {
+      const label = document.getElementById('department-chat-file-label');
+      if (label) label.textContent = 'Файл';
+    });
     document.getElementById('task-chat-refresh-btn')?.addEventListener('click', async () => {
       await loadTaskChatByTaskID(taskChatState.taskID);
     });
@@ -1814,6 +1840,10 @@
     });
     document.getElementById('send-task-chat-full-btn')?.addEventListener('click', async () => {
       await sendTaskMessageFromTaskChat();
+    });
+    document.getElementById('task-chat-full-file')?.addEventListener('change', () => {
+      const label = document.getElementById('task-chat-full-file-label');
+      if (label) label.textContent = 'Файл';
     });
     document.getElementById('project-department')?.addEventListener('change', refreshStaffSelectors);
     document.getElementById('task-project')?.addEventListener('change', refreshStaffSelectors);

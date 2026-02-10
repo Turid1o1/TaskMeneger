@@ -450,14 +450,21 @@ textarea { min-height: 90px; }
   background: #f8fbff;
   border: 1px solid #dbe8ff;
   border-radius: var(--radius-sm);
-  padding: var(--space-8);
+  padding: 6px var(--space-8);
+  max-width: 72%;
+  width: fit-content;
+  min-width: 260px;
+}
+.chat-msg.is-own {
+  margin-left: auto;
+  background: #eaf2ff;
 }
 .chat-msg-head {
   display: flex;
   justify-content: space-between;
   gap: var(--space-8);
   color: #334155;
-  font-size: 12px;
+  font-size: 11px;
   align-items: center;
 }
 .chat-msg-head-actions {
@@ -471,9 +478,10 @@ textarea { min-height: 90px; }
   font-size: 12px;
 }
 .chat-msg-body {
-  margin-top: var(--space-4);
+  margin-top: 3px;
   color: #0f172a;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.35;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -486,7 +494,31 @@ textarea { min-height: 90px; }
   grid-template-columns: 1fr auto auto;
   align-items: center;
 }
-#department-chat-file { width: 240px; }
+.hidden-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 38px;
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+  cursor: pointer;
+}
+.file-chip:hover {
+  background: #eef2f7;
+}
 .messenger-shell {
   flex: 1;
   min-height: 0;
@@ -518,7 +550,6 @@ textarea { min-height: 90px; }
   grid-template-columns: 1fr auto auto;
   align-items: center;
 }
-#task-chat-full-file { width: 240px; }
 
 .table {
   width: 100%; border-collapse: separate; border-spacing: 0; margin-top: var(--space-12);
@@ -712,6 +743,5 @@ textarea { min-height: 90px; }
   .auth-card h1 { font-size: clamp(28px, 8.2vw, 40px); }
   .auth-sub { font-size: clamp(15px, 4.8vw, 22px); }
   .task-chat-input-row, .messenger-input-row { grid-template-columns: 1fr; }
-  #task-chat-full-file { width: 100%; }
-  #department-chat-file { width: 100%; }
+  .file-chip { width: 100%; }
 }

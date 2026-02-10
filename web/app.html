@@ -162,7 +162,8 @@
           <div class="chat-log" id="department-chat-log"></div>
           <div class="row-actions messenger-input-row">
             <input id="department-chat-input" placeholder="Сообщение в чат отдела">
-            <input id="department-chat-file" type="file">
+            <label class="file-chip" for="department-chat-file"><span id="department-chat-file-label">Файл</span></label>
+            <input id="department-chat-file" type="file" class="hidden-file-input">
             <button class="btn btn-md btn-primary" id="send-department-message-btn">Отправить</button>
           </div>
         </div>
@@ -183,7 +184,8 @@
           <div class="chat-log task-chat-log-full" id="task-chat-full-log"></div>
           <div class="row-actions task-chat-input-row">
             <input id="task-chat-full-input" placeholder="Сообщение в чат задачи">
-            <input id="task-chat-full-file" type="file">
+            <label class="file-chip" for="task-chat-full-file"><span id="task-chat-full-file-label">Файл</span></label>
+            <input id="task-chat-full-file" type="file" class="hidden-file-input">
             <button class="btn btn-md btn-primary" id="send-task-chat-full-btn">Отправить</button>
           </div>
         </div>
