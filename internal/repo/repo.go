@@ -1127,6 +1127,7 @@ SELECT r.id,
        r.created_at
 FROM reports r
 JOIN users u ON u.id = r.author_user_id
+WHERE lower(trim(r.result_status)) != lower('Промежуточный отчет')
 ORDER BY r.id ASC
 `)
 	if err != nil {
@@ -1168,7 +1169,8 @@ JOIN users u ON u.id = r.author_user_id
 LEFT JOIN tasks t ON lower(r.target_type) = 'task' AND t.id = r.target_id
 LEFT JOIN projects pt ON pt.id = t.project_id
 LEFT JOIN projects pp ON lower(r.target_type) = 'project' AND pp.id = r.target_id
-WHERE CASE
+WHERE lower(trim(r.result_status)) != lower('Промежуточный отчет')
+  AND CASE
   WHEN lower(r.target_type) = 'task' THEN COALESCE(pt.department_id, 0)
   WHEN lower(r.target_type) = 'project' THEN COALESCE(pp.department_id, 0)
   ELSE 0
@@ -1217,8 +1219,10 @@ LEFT JOIN task_curators tc ON tc.task_id = t.id
 LEFT JOIN projects pp ON lower(r.target_type) = 'project' AND pp.id = r.target_id
 LEFT JOIN project_assignees pa ON pa.project_id = pp.id
 LEFT JOIN project_curators pc ON pc.project_id = pp.id
-WHERE (lower(r.target_type) = 'task' AND (ta.user_id = ? OR tc.user_id = ?))
+WHERE lower(trim(r.result_status)) != lower('Промежуточный отчет')
+  AND ((lower(r.target_type) = 'task' AND (ta.user_id = ? OR tc.user_id = ?))
    OR (lower(r.target_type) = 'project' AND (pa.user_id = ? OR pc.user_id = ?))
+  )
 ORDER BY r.id ASC
 `, userID, userID, userID, userID)
 	if err != nil {

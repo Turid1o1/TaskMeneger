@@ -1170,9 +1170,10 @@
         const routeOwnerID = Number(t.route_owner_user_id || 0);
         const normalizedRole = normalizeRoleValue(session.role || '');
         const sameDepartment = Number(t.department_id || 0) === Number(session.department_id || 0);
+        const isRouteOwner = routeOwnerID === Number(session.id || 0);
         const canRouteTask = (isSuper && stage <= 2) ||
-          (normalizedRole === 'Deputy Admin' && stage === 2 && (routeOwnerID === 0 || routeOwnerID === Number(session.id))) ||
-          (normalizedRole === 'Project Manager' && stage >= 3 && sameDepartment);
+          (normalizedRole === 'Deputy Admin' && stage === 2 && (routeOwnerID === 0 || isRouteOwner)) ||
+          (normalizedRole === 'Project Manager' && sameDepartment && (stage >= 3 || (stage >= 2 && isRouteOwner)));
         if (canRouteTask) {
           baseActions.push(`<button class="btn btn-sm btn-secondary route-task-btn" data-id="${t.id}">Расписать</button>`);
         }

@@ -737,6 +737,12 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 		}
 		nextStage := stage
 		switch {
+		case strings.EqualFold(actor.Role, "Project Manager") && stage <= 2:
+			if !strings.EqualFold(target.Role, "Member") || target.DepartmentID != actor.DepartmentID {
+				writeError(w, http.StatusBadRequest, "начальник отдела может расписывать только сотрудникам своего отдела")
+				return
+			}
+			nextStage = 4
 		case stage <= 2:
 			if !strings.EqualFold(actor.Role, "Owner") && !strings.EqualFold(actor.Role, "Admin") && !strings.EqualFold(actor.Role, "Deputy Admin") {
 				writeError(w, http.StatusForbidden, "этап УЦС: передача доступна только руководству УЦС")
@@ -1046,7 +1052,7 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request) {
 			resultStatus = "Завершено"
 		}
 		switch resultStatus {
-		case "Завершено", "Завершено не полностью", "Не завершено":
+		case "Промежуточный отчет", "Завершено", "Завершено не полностью", "Не завершено":
 		default:
 			writeError(w, http.StatusBadRequest, "некорректный результат закрытия")
 			return
