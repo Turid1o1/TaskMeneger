@@ -742,18 +742,13 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusForbidden, "этап УЦС: передача доступна только руководству УЦС")
 				return
 			}
-			if !strings.EqualFold(target.Role, "Deputy Admin") && stage <= 1 {
-				writeError(w, http.StatusBadRequest, "на первом этапе задача передается Заместителю начальника УЦС")
-				return
-			}
-			if stage <= 1 {
+			if strings.EqualFold(target.Role, "Deputy Admin") {
 				nextStage = 2
-			} else {
-				if !strings.EqualFold(target.Role, "Project Manager") || target.DepartmentID != departmentID {
-					writeError(w, http.StatusBadRequest, "на втором этапе задача передается Начальнику отдела выбранного подразделения")
-					return
-				}
+			} else if strings.EqualFold(target.Role, "Project Manager") {
 				nextStage = 3
+			} else {
+				writeError(w, http.StatusBadRequest, "на этапе УЦС задачу можно расписать только Заместителю начальника УЦС или Начальнику отдела")
+				return
 			}
 		case stage == 3:
 			if !strings.EqualFold(actor.Role, "Project Manager") && !isSuperRole(actor.Role) {

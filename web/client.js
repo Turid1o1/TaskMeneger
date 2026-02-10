@@ -1170,7 +1170,7 @@
         const routeOwnerID = Number(t.route_owner_user_id || 0);
         const normalizedRole = normalizeRoleValue(session.role || '');
         const sameDepartment = Number(t.department_id || 0) === Number(session.department_id || 0);
-        const canRouteTask = (isSuper && stage <= 3) ||
+        const canRouteTask = (isSuper && stage <= 2) ||
           (normalizedRole === 'Deputy Admin' && stage === 2 && (routeOwnerID === 0 || routeOwnerID === Number(session.id))) ||
           (normalizedRole === 'Project Manager' && stage >= 3 && sameDepartment);
         if (canRouteTask) {
@@ -1200,10 +1200,13 @@
       const stage = Number(task.route_stage || 4);
       let candidates = [];
       const normalizedRole = normalizeRoleValue(session.role || '');
-      if (isSuper && stage <= 1) {
-        candidates = users.filter((u) => normalizeRoleValue(u.role || '').toLowerCase() === 'deputy admin');
-      } else if ((isSuper || normalizedRole === 'Deputy Admin') && stage === 2) {
-        candidates = users.filter((u) => normalizeRoleValue(u.role || '').toLowerCase() === 'project manager' && Number(u.department_id) === Number(task.department_id));
+      if (isSuper && stage <= 2) {
+        candidates = users.filter((u) => {
+          const role = normalizeRoleValue(u.role || '').toLowerCase();
+          return role === 'deputy admin' || role === 'project manager';
+        });
+      } else if (normalizedRole === 'Deputy Admin' && stage === 2) {
+        candidates = users.filter((u) => normalizeRoleValue(u.role || '').toLowerCase() === 'project manager');
       } else {
         candidates = users.filter((u) => normalizeRoleValue(u.role || '').toLowerCase() === 'member' && Number(u.department_id) === Number(task.department_id));
       }
@@ -1761,6 +1764,30 @@
       if (deleteReportBtn) {
         try { await deleteReport(deleteReportBtn.dataset.id); } catch (err) { alert(err.message); }
       }
+
+      const addProjectCuratorBtn = e.target.closest('#add-project-curator-btn');
+      if (addProjectCuratorBtn) {
+        e.preventDefault();
+        addPickerRow('projectCurators', 'project-curators-wrap');
+      }
+
+      const addProjectAssigneeBtn = e.target.closest('#add-project-assignee-btn');
+      if (addProjectAssigneeBtn) {
+        e.preventDefault();
+        addPickerRow('projectAssignees', 'project-assignees-wrap');
+      }
+
+      const addTaskCuratorBtn = e.target.closest('#add-task-curator-btn');
+      if (addTaskCuratorBtn) {
+        e.preventDefault();
+        addPickerRow('taskCurators', 'task-curators-wrap');
+      }
+
+      const addTaskAssigneeBtn = e.target.closest('#add-task-assignee-btn');
+      if (addTaskAssigneeBtn) {
+        e.preventDefault();
+        addPickerRow('taskAssignees', 'task-assignees-wrap');
+      }
     });
 
     document.getElementById('save-project-btn')?.addEventListener('click', saveProject);
@@ -1848,10 +1875,6 @@
     });
     document.getElementById('project-department')?.addEventListener('change', refreshStaffSelectors);
     document.getElementById('task-project')?.addEventListener('change', refreshStaffSelectors);
-    document.getElementById('add-project-curator-btn')?.addEventListener('click', () => addPickerRow('projectCurators', 'project-curators-wrap'));
-    document.getElementById('add-project-assignee-btn')?.addEventListener('click', () => addPickerRow('projectAssignees', 'project-assignees-wrap'));
-    document.getElementById('add-task-curator-btn')?.addEventListener('click', () => addPickerRow('taskCurators', 'task-curators-wrap'));
-    document.getElementById('add-task-assignee-btn')?.addEventListener('click', () => addPickerRow('taskAssignees', 'task-assignees-wrap'));
     document.getElementById('user-department')?.addEventListener('change', () => {
       refreshUserPositionOptions('');
     });
