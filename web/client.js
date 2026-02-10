@@ -1169,9 +1169,10 @@
         const stage = Number(t.route_stage || 4);
         const routeOwnerID = Number(t.route_owner_user_id || 0);
         const normalizedRole = normalizeRoleValue(session.role || '');
+        const sameDepartment = Number(t.department_id || 0) === Number(session.department_id || 0);
         const canRouteTask = (isSuper && stage <= 3) ||
           (normalizedRole === 'Deputy Admin' && stage === 2 && (routeOwnerID === 0 || routeOwnerID === Number(session.id))) ||
-          (normalizedRole === 'Project Manager' && stage >= 3 && (routeOwnerID === 0 || routeOwnerID === Number(session.id)));
+          (normalizedRole === 'Project Manager' && stage >= 3 && sameDepartment);
         if (canRouteTask) {
           baseActions.push(`<button class="btn btn-sm btn-secondary route-task-btn" data-id="${t.id}">Расписать</button>`);
         }

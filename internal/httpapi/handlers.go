@@ -724,8 +724,11 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !isSuperRole(actor.Role) && currentOwnerID > 0 && actor.ID != currentOwnerID {
-			writeError(w, http.StatusForbidden, "передавать задачу может только текущий ответственный")
-			return
+			allowDepartmentHeadOverride := strings.EqualFold(actor.Role, "Project Manager") && stage >= 3 && actor.DepartmentID == departmentID
+			if !allowDepartmentHeadOverride {
+				writeError(w, http.StatusForbidden, "передавать задачу может только текущий ответственный")
+				return
+			}
 		}
 		target, err := s.repo.UserByID(r.Context(), in.ToUserID)
 		if err != nil {
