@@ -675,16 +675,9 @@ func (s *Server) tasks(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "кураторы и исполнители должны быть из отдела проекта")
 			return
 		}
-		if strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") {
-			deputy, err := s.repo.FirstUserByRole(r.Context(), "Deputy Admin")
-			if err != nil {
-				writeError(w, http.StatusBadRequest, "не найден Заместитель начальника УЦС для маршрута СЭД")
-				return
-			}
+		if strings.EqualFold(actor.Role, "Owner") || strings.EqualFold(actor.Role, "Admin") || strings.EqualFold(actor.Role, "Deputy Admin") {
+			// Руководство УЦС может сразу распределять задачу, без обязательного шага через заместителя.
 			input.RouteStage = 2
-			input.RouteOwnerID = deputy.ID
-		} else if strings.EqualFold(actor.Role, "Deputy Admin") {
-			input.RouteStage = 3
 			input.RouteOwnerID = actor.ID
 		}
 		if err := s.repo.CreateTask(r.Context(), input); err != nil {
@@ -752,8 +745,10 @@ func (s *Server) taskEntity(w http.ResponseWriter, r *http.Request) {
 				nextStage = 2
 			} else if strings.EqualFold(target.Role, "Project Manager") {
 				nextStage = 3
+			} else if strings.EqualFold(target.Role, "Member") {
+				nextStage = 4
 			} else {
-				writeError(w, http.StatusBadRequest, "на этапе УЦС задачу можно расписать только Заместителю начальника УЦС или Начальнику отдела")
+				writeError(w, http.StatusBadRequest, "на этапе УЦС задачу можно расписать только Заместителю начальника УЦС, Начальнику отдела или сотруднику отдела")
 				return
 			}
 		case stage == 3:

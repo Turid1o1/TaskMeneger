@@ -1204,10 +1204,13 @@
       if (isSuper && stage <= 2) {
         candidates = users.filter((u) => {
           const role = normalizeRoleValue(u.role || '').toLowerCase();
-          return role === 'deputy admin' || role === 'project manager';
+          return role === 'deputy admin' || role === 'project manager' || role === 'member';
         });
       } else if (normalizedRole === 'Deputy Admin' && stage === 2) {
-        candidates = users.filter((u) => normalizeRoleValue(u.role || '').toLowerCase() === 'project manager');
+        candidates = users.filter((u) => {
+          const role = normalizeRoleValue(u.role || '').toLowerCase();
+          return role === 'project manager' || role === 'member';
+        });
       } else {
         candidates = users.filter((u) => normalizeRoleValue(u.role || '').toLowerCase() === 'member' && Number(u.department_id) === Number(task.department_id));
       }
